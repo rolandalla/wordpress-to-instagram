@@ -25,3 +25,8 @@ This plugin is totally free , and will allow you to choose the type of post you 
 
 * Initial Release.
 = 1.1 =
+
+## Support on Beerpay
+Hey dude! Help me out for a couple of :beers:!
+
+[![Beerpay](https://beerpay.io/roladn/wordpress-to-instagram/badge.svg?style=beer-square)](https://beerpay.io/roladn/wordpress-to-instagram)  [![Beerpay](https://beerpay.io/roladn/wordpress-to-instagram/make-wish.svg?style=flat-square)](https://beerpay.io/roladn/wordpress-to-instagram?focus=wish)
