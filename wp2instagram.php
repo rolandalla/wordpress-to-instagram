@@ -3,9 +3,9 @@
 Plugin Name: Auto-Post To Instagram
 Plugin URI: http://h-tech.al
 Description: Plugin for automatic posting Wordpress image to Instagram
-Author: Roland
-Version: 1.1
-Author URI: /h-tech.al
+Author: Roland, Informatica Duran
+Version: 1.4
+Author URI: http://h-tech.al
 */
 define( 'WP2INSTAGRAM_PLUGIN_PATH', plugin_dir_path( __FILE__ ) );
 define( 'WP2INSTAGRAM_PLUGIN_SETTINGS', 'wp2instagram' );
@@ -19,12 +19,12 @@ require WP2INSTAGRAM_PLUGIN_PATH .'mgp25/instagram-php/src/Instagram.php';
 if ( ! class_exists( "wp2instagram" ) ) {
 
 
-	class wp2instagram {
+    class wp2instagram {
 
-		/* Plugin loading method */
-		function load_plugin() {
-        	//settings menu
-			add_action( 'admin_menu', get_class() . '::register_settings_menu' );
+        /* Plugin loading method */
+        function load_plugin() {
+            //settings menu
+            add_action( 'admin_menu', get_class() . '::register_settings_menu' );
             
             $wp2instagram_post_types = get_option('wp2instagram_post_types');
             if($wp2instagram_post_types == false or $wp2instagram_post_types == 'null') {
@@ -36,41 +36,41 @@ if ( ! class_exists( "wp2instagram" ) ) {
             }
             add_filter( 'plugin_action_links', array( $this, 'register_settings_link'), 10, 2 );
             register_activation_hook( __FILE__, array( $this, 'wp2instagram_activate' ) );
-		
-		}
+        
+        }
         
         function wp2instagram_activate() {
             $wp2instagram_post_types = json_encode(array('post'));
             update_option('wp2instagram_post_types', $wp2instagram_post_types);  
         }
 
-		/* Add menu item for plugin to Settings Menu */
-		public static function register_settings_menu() {
-			add_options_page( 'wp2instagram', 'wp2instagram', 'manage_options', WP2INSTAGRAM_PLUGIN_SETTINGS, get_class() . '::settings_page' );
-		}
+        /* Add menu item for plugin to Settings Menu */
+        public static function register_settings_menu() {
+            add_options_page( 'wp2instagram', 'wp2instagram', 'manage_options', WP2INSTAGRAM_PLUGIN_SETTINGS, get_class() . '::settings_page' );
+        }
         
         public function register_settings_link( $links, $file ) {
 
-			static $this_plugin;
-			if ( ! $this_plugin ) {
-				$this_plugin = WP2INSTAGRAM_PLUGIN_BASE;
-			}
+            static $this_plugin;
+            if ( ! $this_plugin ) {
+                $this_plugin = WP2INSTAGRAM_PLUGIN_BASE;
+            }
 
-			if ( $file == $this_plugin ) {
-				$settings_link = '<a href="options-general.php?page=' . WP2INSTAGRAM_PLUGIN_SETTINGS . '">' . __( 'Settings', WP2INSTAGRAM_PLUGIN_SETTINGS ) . '</a>';
-				array_unshift( $links, $settings_link );
-			}
+            if ( $file == $this_plugin ) {
+                $settings_link = '<a href="options-general.php?page=' . WP2INSTAGRAM_PLUGIN_SETTINGS . '">' . __( 'Settings', WP2INSTAGRAM_PLUGIN_SETTINGS ) . '</a>';
+                array_unshift( $links, $settings_link );
+            }
 
-			return $links;
+            return $links;
 
-		}
+        }
         
         public static function settings_page(){
             ?>
             <div class="wrap">
-			<div class="h2_left">
-				<h1 class="instagrate-icon dashicons-before dashicons-camera">WP 2 INSTAGRAM</h1>
-			</div>
+            <div class="h2_left">
+                <h1 class="instagrate-icon dashicons-before dashicons-camera">WP 2 INSTAGRAM</h1>
+            </div>
             <h3>Instagram account</h3>
             <?php
             if(isset($_REQUEST['submit_instagram_account'])) {
@@ -96,8 +96,8 @@ if ( ! class_exists( "wp2instagram" ) ) {
             
             <hr />
             
-            <h3>Post types config</h3>
-			<?php
+             v
+            <?php
             if(isset($_REQUEST['submit_post_types'])) {
                 $wp2instagram_post_types = $_REQUEST['wp2instagram_post_types'];
                 $wp2instagram_post_types = json_encode($wp2instagram_post_types);
@@ -143,11 +143,17 @@ if ( ! class_exists( "wp2instagram" ) ) {
             ?>
             <input type="submit" name="submit_post_types" value="Save" />
             </form>
+             <h3> Developer Section</h3>
+
+             <a href="https://www.paypal.me/ROLANDALLA/"> <img src="https://camo.githubusercontent.com/ea8c6da768f69e6edfef4f75600e61a32282cf65/687474703a2f2f696d6775722e636f6d2f5753565a5354572e706e67" alt="send a donation"> </a>
+            <h2>or </h2>
+             <a href="http://www.rolandalla.com/contact/"> <img src="https://www.seoclerk.com/files/user/images/hire-me2(5).png" alt="hire me"></a>
             </div>
             <?php
         }
         
         function post_published_instagram( $ID, $post ) {
+            if ( has_post_thumbnail() ) {
             $username = get_option("wp2instagram_username", "");
             $password = get_option("wp2instagram_password", "");
             if($username == "" || $password == "") {
@@ -164,26 +170,27 @@ if ( ! class_exists( "wp2instagram" ) ) {
                         list($originalWidth, $originalHeight) = getimagesize($photo);
                         $ratio = $originalWidth / $originalHeight;
                         if($ratio < 0.8) {
-                        	$cropH = $originalHeight;
-                        	$cropW = $originalHeight * 0.8 + 2;
-                        	$X = ($cropW - $originalWidth) / 2;
+                            $cropH = $originalHeight;
+                            $cropW = $originalHeight * 0.8 + 2;
+                            $X = ($cropW - $originalWidth) / 2;
                         
-                        	$origimg = imagecreatefromjpeg($photo);
-                        	$cropimg = imagecreatetruecolor($cropW,$cropH);
-                        	$white = imagecolorallocate($cropimg, 255, 255, 255);
-                        	imagefill($cropimg, 0, 0, $white);
+                            $origimg = imagecreatefromjpeg($photo);
+                            $cropimg = imagecreatetruecolor($cropW,$cropH);
+                            $white = imagecolorallocate($cropimg, 255, 255, 255);
+                            imagefill($cropimg, 0, 0, $white);
                         
-                        	// Crop
-                        	imagecopyresized($cropimg, $origimg, $X, 0, 0, 0, $originalWidth, $originalHeight, $originalWidth, $originalHeight);
+                            // Crop
+                            imagecopyresized($cropimg, $origimg, $X, 0, 0, 0, $originalWidth, $originalHeight, $originalWidth, $originalHeight);
                             imagejpeg($cropimg, WP2INSTAGRAM_PLUGIN_PATH . 'temp.jpg');
                             $photo = WP2INSTAGRAM_PLUGIN_PATH . 'temp.jpg';
                             $action_delete = TRUE;
                         }
                         $debug = false;
                         
-                        $caption = get_the_title($ID);     // caption
-                        //////////////////////
-                        
+                         $caption = get_the_title($ID);     // caption
+                         //////////////////////
+                         $caption =html_entity_decode($caption, ENT_QUOTES, "UTF-8");
+
                         $i = new \InstagramAPI\Instagram($username, $password, $debug);
                         
                         try {
@@ -208,8 +215,9 @@ if ( ! class_exists( "wp2instagram" ) ) {
                 }  
             }
         }
-	}
+    }
 
 }
 $a = new wp2instagram();
 $a->load_plugin();
+}
