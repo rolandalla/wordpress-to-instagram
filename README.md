@@ -53,6 +53,6 @@ New features:
 
 
 #== Contributors ==
-= Roland Alla =
-= Informatica Duran =
-= Laurent Dufour =
+* Roland Alla 
+* Informatica Duran
+* Laurent Dufour 
