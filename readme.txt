@@ -56,10 +56,26 @@ New features:
 
 * New plugin advandced settings page
 * You can now customize the usage of hashtags in your caption 
-* Set the maximum bumber of hashtags ( Recommande below 30 , please check at https://www.quora.com/What-is-the-maximum-number-of-hashtags-you-can-insert-in-a-comment-on-an-Instagram-photo )
+* Set the maximum bumber of hashtags ( Recommanded below 30 , please check at https://www.quora.com/What-is-the-maximum-number-of-hashtags-you-can-insert-in-a-comment-on-an-Instagram-photo )
 * Use of additional hashtags
-* Use or not the original tags of you post of hashtags
+* Use or not the original tags of you post as hashtags
 * Use a header in caption ( This text will be placed after Title and before hashgtags )
 * Use a footer in caption ( This text will be placed after the hashgtags )
+
+* Tested in Wordpress 4.9.5
+
+= 1.4.2 =
+
+Bug corrected :
+
+* Now properly handle the number of maximum hashtags
+
+New features:
+
+* Use or not the original categories name of your post as hashtags 
+* Convert or not accents in your hashtags
+* Remove or not underscore (_) or hyphen (-) in your hashtags
+
+Please note that tags are processed before category, so if you have reach the maximumn number of hashtags before the processing of categories, you will not see them on Instagram
 
 * Tested in Wordpress 4.9.5

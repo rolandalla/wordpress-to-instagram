@@ -31,28 +31,4 @@ This plugin is totally free , and will allow you to choose the type of post you 
 
 * Initial Release.
 = 1.1 =
-* Fix some bugs.
-
 = 1.2 =
-* Fix some bugs.
-* Add Notice 
-
-= 1.3 =
-* Fix Html Tags.
-
-= 1.4.1 =
-New features:
-
-* New plugin advandced settings page
-* You can now customize the usage of hashtags in your caption 
-* Set the maximum bumber of hashtags ( Recommande below 30 , please check at https://www.quora.com/What-is-the-maximum-number-of-hashtags-you-can-insert-in-a-comment-on-an-Instagram-photo )
-* Use of additional hashtags
-* Use or not the original tags of you post of hashtags
-* Use a header in caption ( This text will be placed after Title and before hashgtags )
-* Use a footer in caption ( This text will be placed after the hashgtags )
-
-
-#== Contributors ==
-* Roland Alla 
-* Informatica Duran
-* Laurent Dufour 
