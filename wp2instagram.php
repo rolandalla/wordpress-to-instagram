@@ -4,7 +4,7 @@ Plugin Name: Auto-Post To Instagram
 Plugin URI: http://h-tech.al
 Description: Plugin for automatic posting Wordpress image to Instagram
 Author: Roland, Informatica Duran
-Version: 1.4.2
+Version: 1.4.5
 Author URI: http://h-tech.al
 */
 
@@ -12,7 +12,7 @@ define( 'WP2INSTAGRAM_PLUGIN_PATH', plugin_dir_path( __FILE__ ) );
 define( 'WP2INSTAGRAM_PLUGIN_SETTINGS', 'wp2instagram' );
 define( 'WP2INSTAGRAM_PLUGIN_BASE', plugin_basename( __FILE__ ) );
 define( 'WP2INSTAGRAM_RETURN_URI', strtolower( site_url( '/' ) . 'wp-admin/options-general.php?page=' . WP2INSTAGRAM_PLUGIN_SETTINGS ) );
-define( 'WP2INSTAGRAM_VERSION', '1.4.2');
+define( 'WP2INSTAGRAM_VERSION', '1.4.5');
 
 
 include WP2INSTAGRAM_PLUGIN_PATH .'autoload.php';
@@ -34,15 +34,68 @@ if ( ! class_exists( "wp2instagram" ) ) {
 	return $wp2instagram_meta_links;
 	}
 	
-	
+	/**
+	 * wp2instagram_add_metabox
+	 *
+	 * @return void
+	 */
+	public function wp2instagram_add_metabox() {
+		add_meta_box(
+			'wp2instagram_metabox',
+			'Auto Post to Instagram',
+			array($this, 'wp2instagram_metabox'),
+			['post', 'page'],
+			'side',
+			'high'
+		);
+	}
+
+	/**
+	 * wp2instagram_metabox
+	 *
+	 * @param WP_Post $post the current post.
+	 * @return void
+	 */
+	public function wp2instagram_metabox( $post ) {
+		
+		$dontautopublish = get_option('wp2instagram_dontautopublish');
+		if($dontautopublish == false || $dontautopublish == 'null') {
+            $dontautopublish = '';
+        } else
+            $dontautopublish = json_decode($dontautopublish);
+		
+		if (empty($dontautopublish)) $dontautopublish='N';	
+		if ($dontautopublish!='Y') $dontautopublish='N';
+		
+		
+		if ( !get_post_meta( $post->ID, 'firstpublish', $single = true ) ) {
+			$status="Never published";
+		} else {
+			$status="Already published";
+		}
+	 	
+		?>
+		<div style="margin: 20px 0;">
+		<input type="hidden" name="wp2instagram_in_instagram_box[]" value="Y">
+		<input type="checkbox" <?php if ($dontautopublish=='N') {echo 'checked="checked"';} ?>value="Y" name="wp2instagram_post_this_article_to_instagram">Post to Instagram<br><br>
+		Instagram Status : <?php echo $status; ?>
+		</div>
+		
+		
+		<?php
+	}
 	
 	
 	
         /* Plugin loading method */
         function load_plugin() {
-            //settings menu
-            add_action( 'admin_menu', get_class() . '::register_settings_menu' );
 
+			//metabox
+			add_action( 'add_meta_boxes', array($this, 'wp2instagram_add_metabox' ) );
+
+			//settings menu
+            add_action( 'admin_menu', get_class() . '::register_settings_menu' );
+			
             $wp2instagram_post_types = get_option('wp2instagram_post_types');
             if($wp2instagram_post_types == false or $wp2instagram_post_types == 'null') {
                 $wp2instagram_post_types = array();
@@ -168,7 +221,14 @@ if ( ! class_exists( "wp2instagram" ) ) {
 				$wp2instagram_sanitize = json_encode($wp2instagram_sanitize);
 				update_option('wp2instagram_sanitize', $wp2instagram_sanitize);  
 
+				$wp2instagram_author = $_REQUEST['wp2instagram_author'];	
+				$wp2instagram_author = json_encode($wp2instagram_author);
+				update_option('wp2instagram_author', $wp2instagram_author);  
 				
+
+				$wp2instagram_author_caption = $_REQUEST['wp2instagram_author_caption'];	
+				$wp2instagram_author_caption = json_encode($wp2instagram_author_caption);
+				update_option('wp2instagram_author_caption', $wp2instagram_author_caption);
 				
 				$wp2instagram_header_caption = $_REQUEST['wp2instagram_header_caption'];	
 				$wp2instagram_header_caption = json_encode($wp2instagram_header_caption);
@@ -182,7 +242,19 @@ if ( ! class_exists( "wp2instagram" ) ) {
                 $wp2instagram_post_types = $_REQUEST['wp2instagram_post_types'];
                 $wp2instagram_post_types = json_encode($wp2instagram_post_types);
                 update_option('wp2instagram_post_types', $wp2instagram_post_types);  
+				
+				
+				
+				$wp2instagram_dontautopublish = $_REQUEST['wp2instagram_dontautopublish'];	
+				$wp2instagram_dontautopublish = json_encode($wp2instagram_dontautopublish);
+				update_option('wp2instagram_dontautopublish', $wp2instagram_dontautopublish);  
 
+				$wp2instagram_debug = $_REQUEST['wp2instagram_debug'];	
+				$wp2instagram_debug = json_encode($wp2instagram_debug);
+				update_option('wp2instagram_debug', $wp2instagram_debug);  
+
+				
+				
                 echo "<p><b>Post types save!</b></p>";  
 
             }
@@ -227,7 +299,18 @@ if ( ! class_exists( "wp2instagram" ) ) {
             } else
                 $wp2instagram_sanitize = json_decode($wp2instagram_sanitize);
 			
+			$wp2instagram_author = get_option('wp2instagram_author');
+			if($wp2instagram_author == false || $wp2instagram_author == 'null') {
+                $wp2instagram_author = '';
+            } else
+                $wp2instagram_author = json_decode($wp2instagram_author);
 			
+
+			$wp2instagram_author_caption = get_option('wp2instagram_author_caption');
+			if($wp2instagram_author_caption == false || $wp2instagram_author_caption == 'null') {
+                $wp2instagram_author_caption = '';
+            } else
+                $wp2instagram_author_caption = json_decode($wp2instagram_author_caption);
 
 			$wp2instagram_header_caption = get_option('wp2instagram_header_caption');
 			if($wp2instagram_header_caption == false || $wp2instagram_header_caption == 'null') {
@@ -235,6 +318,8 @@ if ( ! class_exists( "wp2instagram" ) ) {
             } else
                 $wp2instagram_header_caption = json_decode($wp2instagram_header_caption);
 
+			
+			
 
 			$wp2instagram_footer_caption = get_option('wp2instagram_footer_caption');
 			if($wp2instagram_footer_caption == false || $wp2instagram_footer_caption == 'null') {
@@ -249,6 +334,21 @@ if ( ! class_exists( "wp2instagram" ) ) {
             } else
                 $wp2instagram_post_types = json_decode($wp2instagram_post_types);
 
+			
+			$wp2instagram_dontautopublish = get_option('wp2instagram_dontautopublish');
+			if($wp2instagram_dontautopublish == false || $wp2instagram_dontautopublish == 'null') {
+                $wp2instagram_dontautopublish = '';
+            } else
+                $wp2instagram_dontautopublish = json_decode($wp2instagram_dontautopublish);
+
+			$wp2instagram_debug = get_option('wp2instagram_debug');
+			if($wp2instagram_debug == false || $wp2instagram_debug == 'null') {
+                $wp2instagram_debug = '';
+            } else
+                $wp2instagram_debug = json_decode($wp2instagram_debug);
+			
+			
+			
             $args = array(
                '_builtin' => false
             );
@@ -316,7 +416,7 @@ if ( ! class_exists( "wp2instagram" ) ) {
 			<tr>
 				<td align="top">Add this header to caption</td>
 				<td align="top"><input type="text" name="wp2instagram_header_caption" size="100" value="<?php echo $wp2instagram_header_caption; ?>"></td>
-				<td>This text will be placed after Title and before hashgtags<br/>
+				<td>This text will be placed after Title and Author and before hashgtags<br/>
 				</td>
 			</tr>
 			<tr>
@@ -325,6 +425,18 @@ if ( ! class_exists( "wp2instagram" ) ) {
 				<td>This text will be placed after the hashgtags<br/>
 				</td>
 			</tr>
+			<tr>
+				<td>Include Author's name in header caption</td>
+				<td><input type="checkbox" <?php if ($wp2instagram_author=='Y') {echo 'checked="checked"';} ?>value="Y" name="wp2instagram_author"></td>
+				<td>Check this box if you want to see the author's name in front of the header caption.
+			</td>
+			<tr>
+				<td align="top">Add this author label to caption</td>
+				<td align="top"><input type="text" name="wp2instagram_author_caption" size="100" value="<?php echo $wp2instagram_author_caption; ?>"></td>
+				<td>This text will be placed after Title and before hashgtags - Used only if Author's name in header caption is checked <br/>
+				</td>
+			</tr>
+
 			<tr>
 				<td>Replace accents from hashtags</td>
 				<td><input type="checkbox" <?php if ($wp2instagram_replace_accents=='Y') {echo 'checked="checked"';} ?>value="Y" name="wp2instagram_replace_accents"></td>
@@ -335,6 +447,21 @@ if ( ! class_exists( "wp2instagram" ) ) {
 				<td><input type="checkbox" <?php if ($wp2instagram_sanitize=='Y') {echo 'checked="checked"';} ?>value="Y" name="wp2instagram_sanitize"></td>
 				<td>Check the box if you want to sanitize your hastags ( Eg remove hyphen (-), underscore (_) ).
 			</td>
+			
+			<tr>
+				<td>Do not auto publish new posts</td>
+				<td><input type="checkbox" <?php if ($wp2instagram_dontautopublish=='Y') {echo 'checked="checked"';} ?>value="Y" name="wp2instagram_dontautopublish"></td>
+				<td>Check the box if you do not want to have all new posts published to Instagram.
+			</td>
+
+			<tr>
+				<td>Debug</td>
+				<td><input type="checkbox" <?php if ($wp2instagram_debug=='Y') {echo 'checked="checked"';} ?>value="Y" name="wp2instagram_debug"></td>
+				<td>Check the box if you want to enable debug mode.
+			</td>
+
+			
+			
 	</tr>
 			</table>
 
@@ -357,6 +484,42 @@ if ( ! class_exists( "wp2instagram" ) ) {
 
         function post_published_instagram( $ID, $post ) {
 
+	
+			$dontautopublish = get_option('wp2instagram_dontautopublish');
+			if($dontautopublish == false || $dontautopublish == 'null') {
+				$dontautopublish = '';
+			} else
+				$dontautopublish = json_decode($dontautopublish);
+			
+			if (empty($dontautopublish)) $dontautopublish='N';	
+			if ($dontautopublish!='Y') $dontautopublish='N';
+	
+			$post_this_article_to_instagram='N';
+			$in_instagram_box='N';
+	
+			$in_instagram_box = isset( $_POST['wp2instagram_in_instagram_box'] );
+			if ( empty($in_instagram_box) )
+				{ $in_instagram_box='N'; }
+			
+				
+			
+			$post_this_article_to_instagram = isset( $_POST['wp2instagram_post_this_article_to_instagram'] );
+						
+			if ( empty($post_this_article_to_instagram) && ($in_instagram_box=='Y') ) {
+				
+				$post_this_article_to_instagram='N';
+				
+			} elseif ( empty($post_this_article_to_instagram) && ($in_instagram_box=='N') ) {
+   			 // We are not in the instagram box post, but for instance in an auto scheduled post case
+			
+			    if ($dontautopublish=='Y') { $post_this_article_to_instagram='N'; } 				
+				else  { $post_this_article_to_instagram='Y'; } 				
+				
+			}
+			
+			if ($post_this_article_to_instagram!='Y') { $post_this_article_to_instagram='N'; }
+			
+		
             if ( has_post_thumbnail() ) {
             $username = get_option("wp2instagram_username", "");
             $password = get_option("wp2instagram_password", "");
@@ -364,13 +527,19 @@ if ( ! class_exists( "wp2instagram" ) ) {
             if($username == "" || $password == "") {
                 return;
             } else {
-                if ($username!="") {
+                if ( ($username!="") && ($post_this_article_to_instagram=='Y') ) {
                      if ( !get_post_meta( $ID, 'firstpublish', $single = true ) ) {
 
                         $feature_image_id = get_post_thumbnail_id($ID);
                         $feature_image_meta = wp_get_attachment_image_src($feature_image_id, '32');
                         $photo = get_attached_file( $feature_image_id ); // Full path
 
+						$author_id = get_post_field ('post_author', $ID);
+						$display_name = get_the_author_meta( 'display_name' , $author_id ); 
+						//echo $display_name;
+						
+						
+						
                         $action_delete = FALSE;
 
                         list($originalWidth, $originalHeight) = getimagesize($photo);
@@ -395,7 +564,21 @@ if ( ! class_exists( "wp2instagram" ) ) {
                             $action_delete = TRUE;
                         }
 
-                        $debug = false;
+                        $debug = false; 
+						
+						
+						$debug_mode = get_option("wp2instagram_debug", "");
+						if($debug_mode == false || $debug_mode == 'null') {
+							$debug_mode = '';
+						} else
+							$debug_mode = json_decode($debug_mode);
+
+						if (empty($debug_mode)) $debug_mode='Y';
+						if ($debug_mode!='Y') $debug_mode='N';
+
+						if 	($debug_mode=='Y') { $debug=true; } 
+						else { $debug = false;  }
+						
 
                         $caption = get_the_title($ID);     // caption
 
@@ -514,17 +697,27 @@ if ( ! class_exists( "wp2instagram" ) ) {
 
 
 
-
-
-
-
-
-
-
-
-
+						$use_author_of_post = get_option("wp2instagram_author", "");
+						if($use_author_of_post == false || $use_author_of_post == 'null') {
+							$use_author_of_post = '';
+						} else
+							$use_author_of_post = json_decode($use_author_of_post);
 
 						
+						if (empty($use_author_of_post)) $use_author_of_post='Y';
+						if ($use_author_of_post!='Y') $use_author_of_post='N';
+
+
+						// Get Author's Caption
+						
+						$author_caption = get_option("wp2instagram_author_caption", "");
+						if($author_caption == false || $author_caption == 'null') {
+							$author_caption = '';
+						} else
+							$author_caption = json_decode($author_caption);
+
+
+					
 
 						// Get header & footer
 
@@ -637,6 +830,17 @@ if ( ! class_exists( "wp2instagram" ) ) {
 						
 						
 
+						if ($use_author_of_post=='Y')
+						{
+							if (strlen($author_caption) > 0) {
+								$caption .= " - ".$author_caption." : ";
+							}
+							if (strlen($display_name) > 0) {
+								$caption .= $display_name;
+							}
+						}
+						
+						
 						if (strlen($header_caption) > 0) {
 							$caption .= " - ".$header_caption;
 						}
@@ -659,15 +863,15 @@ if ( ! class_exists( "wp2instagram" ) ) {
 						
 
                         $i = new \InstagramAPI\Instagram($username, $password, $debug);
-
+						
                         
-
-                        try {
-                            $i->login();
-                        } catch (Exception $e) {
-                            $e->getMessage();
-                            exit();
-                        }
+						
+                        //try {
+                        //    $i->login();
+                        //} catch (Exception $e) {
+                        //    $e->getMessage();
+                        //    exit();
+                        //}
 
                         
 
