@@ -2,10 +2,10 @@
 /*  
 Plugin Name: Auto-Post To Instagram
 Plugin URI: http://h-tech.al
-Description: Plugin for automatic posting Wordpress image to Instagram
+Description: Plugin for automatic posting Wordpress images to Instagram
 Author: Roland, Informatica Duran
 Version: 1.4.6
-Author URI: http://h-tech.al
+Author URI: http://rolandalla.com
 */
 
 
