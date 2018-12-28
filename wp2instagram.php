@@ -4,7 +4,7 @@ Plugin Name: Auto-Post To Instagram
 Plugin URI: http://h-tech.al
 Description: Plugin for automatic posting Wordpress image to Instagram
 Author: Roland, Informatica Duran
-Version: 1.4.6
+Version: 1.4.7
 Author URI: http://h-tech.al
 */
 
@@ -13,7 +13,7 @@ define( 'WP2INSTAGRAM_PLUGIN_PATH', plugin_dir_path( __FILE__ ) );
 define( 'WP2INSTAGRAM_PLUGIN_SETTINGS', 'wp2instagram' );
 define( 'WP2INSTAGRAM_PLUGIN_BASE', plugin_basename( __FILE__ ) );
 define( 'WP2INSTAGRAM_RETURN_URI', strtolower( site_url( '/' ) . 'wp-admin/options-general.php?page=' . WP2INSTAGRAM_PLUGIN_SETTINGS ) );
-define( 'WP2INSTAGRAM_VERSION', '1.4.6');
+define( 'WP2INSTAGRAM_VERSION', '1.4.7');
 
 
 include WP2INSTAGRAM_PLUGIN_PATH .'autoload.php';
@@ -979,27 +979,52 @@ if ( ! class_exists( "wp2instagram" ) ) {
                         $caption =html_entity_decode($caption, ENT_QUOTES, "UTF-8");
 
 						
-						$wp2IGFullPath = false;
+						$wp2IGFullPath = null;
 					
 						try {
 							$i = new \InstagramAPI\Instagram($username, $password, $debug, $wp2IGFullPath);
 						} catch (\Exception $e) {
+							
+							$error_message=$e->getMessage();
+							
+							if ($error_message == "login_required")
+							
+							{
+							
+									try {
+										$loging_force=true;
+										$i->login($loging_force);
+									} catch (\Exception $e2) {
+									
+									$instagram_post_upload_status='Something went wrong while logging to instagram: '.$e2->getMessage();
+									update_post_meta( $ID, 'instagram_post_upload_status', json_encode($instagram_post_upload_status) );
+									echo $instagram_post_upload_status."\n";
+									exit(0);
+										
+									}
+								
+								
+							}
+							else {
+							
 							$instagram_post_upload_status='Something went wrong while connecting to instagram: '.$e->getMessage();
                             update_post_meta( $ID, 'instagram_post_upload_status', json_encode($instagram_post_upload_status) );
 							echo $instagram_post_upload_status."\n";
 							exit(0);
+							
+							}
                         }
 
 						
 							
-							//try {
-							//	$i->setUser($username, $password);
-							//} catch (\Exception $e) {
-							//	$instagram_post_upload_status='Something went wrong while setting user to instagram: '.$e->getMessage();
-							//	update_post_meta( $ID, 'instagram_post_upload_status', json_encode($instagram_post_upload_status) );
-							//	echo $instagram_post_upload_status."\n";
-							//	exit(0);
-							//}
+						try {
+							$i->setUser($username, $password);
+						} catch (\Exception $e) {
+							$instagram_post_upload_status='Something went wrong while setting user to instagram: '.$e->getMessage();
+							update_post_meta( $ID, 'instagram_post_upload_status', json_encode($instagram_post_upload_status) );
+							echo $instagram_post_upload_status."\n";
+							exit(0);
+						}
 							
 							
                         
@@ -1007,9 +1032,33 @@ if ( ! class_exists( "wp2instagram" ) ) {
                         try {
                             $insta_info=$i->uploadPhoto($photo, $caption);
                         } catch (\Exception $e) {
+							
+							$error_message=$e->getMessage();
+							
+							if ($error_message == "login_required")
+							
+							{
+							
+									try {
+										$i->login();
+									} catch (\Exception $e2) {
+									
+									$instagram_post_upload_status='Something went wrong while logging to instagram: '.$e2->getMessage();
+									update_post_meta( $ID, 'instagram_post_upload_status', json_encode($instagram_post_upload_status) );
+									echo $instagram_post_upload_status."\n";
+									exit(0);
+										
+									}
+								
+								
+							}
+							else {
+
                             $instagram_post_upload_status='Something went wrong while uploading your photo: '.$e->getMessage();
                             update_post_meta( $ID, 'instagram_post_upload_status', json_encode($instagram_post_upload_status) );
 							echo $instagram_post_upload_status."\n";
+
+							}
                         }
 
 				
