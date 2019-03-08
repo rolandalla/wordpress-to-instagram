@@ -3,7 +3,7 @@ Contributors: rolandalla91, dufour_l
 Donate link: https://www.paypal.me/ROLANDALLA/
 Tags: autopost, wordpress, instagram
 Requires at least: 3.5
-Tested up to: 5.0.1
+Tested up to: 5.1
 Stable tag: trunk
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
@@ -135,3 +135,36 @@ New features:
 * if debug mode activated, in the info box, you will have the full response of instagram, with the message why it was not accepted by instagram.
 
 * Tested in Wordpress 5.0.1
+
+= 1.4.7 =
+
+Bug corrected :
+
+* Minor correction to the login process to Instagram 
+
+New features:
+
+* None
+
+* Tested in Wordpress 5.0.2
+
+= 1.4.8 =
+
+Bug corrected :
+
+* None
+
+New features:
+
+* Bypass control to avoid the checking of width and/or height, in that case the picture is sent to Instagram no matter what, so it may be refused by Instagram
+* Resize of photo to a size acccepted by Instagram ( max : 1080px ) 
+
+* Tested in Wordpress 5.0.2
+
+= 1.4.9 =
+
+Bug corrected :
+
+* Fix a bug with debug_mode, thanks to Jan Zikmund
+
+* Tested in Wordpress 5.1
