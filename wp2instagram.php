@@ -4,7 +4,7 @@ Plugin Name: Auto-Post To Instagram
 Plugin URI: http://h-tech.al
 Description: Plugin for automatic posting Wordpress images to Instagram
 Author: Roland, Informatica Duran
-Version: 1.4.9
+Version: 1.4.10
 Author URI: http://rolandalla.com
 */
 
@@ -12,7 +12,7 @@ define('WP2INSTAGRAM_PLUGIN_PATH', plugin_dir_path(__FILE__));
 define('WP2INSTAGRAM_PLUGIN_SETTINGS', 'wp2instagram');
 define('WP2INSTAGRAM_PLUGIN_BASE', plugin_basename(__FILE__));
 define('WP2INSTAGRAM_RETURN_URI', strtolower(site_url('/').'wp-admin/options-general.php?page='.WP2INSTAGRAM_PLUGIN_SETTINGS));
-define('WP2INSTAGRAM_VERSION', '1.4.9');
+define('WP2INSTAGRAM_VERSION', '1.4.10');
 
 include WP2INSTAGRAM_PLUGIN_PATH.'autoload.php';
 require WP2INSTAGRAM_PLUGIN_PATH.'mgp25/instagram-php/src/Instagram.php';
@@ -246,6 +246,11 @@ if (!class_exists('wp2instagram')) {
                 $wp2instagram_max_number_of_hashtags = json_encode($wp2instagram_max_number_of_hashtags);
                 update_option('wp2instagram_max_number_of_hashtags', $wp2instagram_max_number_of_hashtags);
 
+
+                $wp2instagram_use_title_words_of_post = $_REQUEST['wp2instagram_use_title_words_of_post'];
+                $wp2instagram_use_title_words_of_post = json_encode($wp2instagram_use_title_words_of_post);
+                update_option('wp2instagram_use_title_words_of_post', $wp2instagram_use_title_words_of_post);
+
                 $wp2instagram_use_tags_of_post = $_REQUEST['wp2instagram_use_tags_of_post'];
                 $wp2instagram_use_tags_of_post = json_encode($wp2instagram_use_tags_of_post);
                 update_option('wp2instagram_use_tags_of_post', $wp2instagram_use_tags_of_post);
@@ -294,6 +299,10 @@ if (!class_exists('wp2instagram')) {
                 $wp2instagram_resize_image = json_encode($wp2instagram_resize_image);
                 update_option('wp2instagram_resize_image', $wp2instagram_resize_image);
 
+                $wp2instagram_remove_exif_image = $_REQUEST['wp2instagram_remove_exif_image'];
+                $wp2instagram_remove_exif_image = json_encode($wp2instagram_remove_exif_image);
+                update_option('wp2instagram_remove_exif_image', $wp2instagram_remove_exif_image);
+
                 $wp2instagram_debug = $_REQUEST['wp2instagram_debug'];
                 $wp2instagram_debug = json_encode($wp2instagram_debug);
                 update_option('wp2instagram_debug', $wp2instagram_debug);
@@ -313,6 +322,13 @@ if (!class_exists('wp2instagram')) {
                 $wp2instagram_max_number_of_hashtags = '';
             } else {
                 $wp2instagram_max_number_of_hashtags = json_decode($wp2instagram_max_number_of_hashtags);
+            }
+
+            $wp2instagram_use_title_words_of_post = get_option('wp2instagram_use_title_words_of_post');
+            if ($wp2instagram_use_title_words_of_post == false || $wp2instagram_use_title_words_of_post == 'null') {
+                $wp2instagram_use_title_words_of_post = '';
+            } else {
+                $wp2instagram_use_title_words_of_post = json_decode($wp2instagram_use_title_words_of_post);
             }
 
             $wp2instagram_use_tags_of_post = get_option('wp2instagram_use_tags_of_post');
@@ -392,6 +408,15 @@ if (!class_exists('wp2instagram')) {
                 $wp2instagram_resize_image = json_decode($wp2instagram_resize_image);
             }
 
+            $wp2instagram_remove_exif_image = get_option('wp2instagram_remove_exif_image');
+            if ($wp2instagram_remove_exif_image == false || $wp2instagram_remove_exif_image == 'null') {
+                $wp2instagram_remove_exif_image = '';
+            } else {
+                $wp2instagram_remove_exif_image = json_decode($wp2instagram_remove_exif_image);
+            }
+			
+			
+			
             $wp2instagram_dontautopublish = get_option('wp2instagram_dontautopublish');
             if ($wp2instagram_dontautopublish == false || $wp2instagram_dontautopublish == 'null') {
                 $wp2instagram_dontautopublish = '';
@@ -452,6 +477,13 @@ if (!class_exists('wp2instagram')) {
 				<td>Beware not to use more than 30 tags.<br/><a href='https://www.quora.com/What-is-the-maximum-number-of-hashtags-you-can-insert-in-a-comment-on-an-Instagram-photo' target="_blank">https://www.quora.com/What-is-the-maximum-number-of-hashtags-you-can-insert-in-a-comment-on-an-Instagram-photo</a><br/>
 				</td>
 			</tr>
+			<tr>
+				<td>Add post title words as hashtags</td>
+				<td><input type="checkbox" <?php if ($wp2instagram_use_title_words_of_post == 'Y') {
+                echo 'checked="checked"';
+            } ?>value="Y" name="wp2instagram_use_title_words_of_post"></td>
+				<td>Check the box if you want to use it - For example if the post title is “The Lazy Brown Dog” then as additional hashtags it adds “#the #lazy #brown #dog”
+			</td>
 			<tr>
 				<td>Also use tags of post as hashtags</td>
 				<td><input type="checkbox" <?php if ($wp2instagram_use_tags_of_post == 'Y') {
@@ -530,6 +562,15 @@ if (!class_exists('wp2instagram')) {
             } ?>value="Y" name="wp2instagram_resize_image"></td>
 				<td>Check the box if you want that the plugin try to resize your image to a size accepted by Instagram ( max 1080px ) if your picture is too big.
 			</td>
+
+			<tr>
+				<td>Remove Exif from picture</td>
+				<td><input type="checkbox" <?php if ($wp2instagram_remove_exif_image == 'Y') {
+                echo 'checked="checked"';
+            } ?>value="Y" name="wp2instagram_remove_exif_image"></td>
+				<td>Check the box if you want that the plugin remove the Exif from your photo before sending it to Instagram.
+			</td>
+
 			
 			
 			<tr>
@@ -603,6 +644,22 @@ if (!class_exists('wp2instagram')) {
                 $resize_image = 'N';
             }
 
+            $resize_image = get_option('wp2instagram_remove_exif_image', '');
+            if ($remove_exif == false || $remove_exif == 'null') {
+                $remove_exif = 'N';
+            } else {
+                $remove_exif = json_decode($remove_exif);
+            }
+
+            if (empty($remove_exif)) {
+                $remove_exif = 'N';
+            }
+            if ($remove_exif != 'Y') {
+                $remove_exif = 'N';
+            }
+			
+			
+			
             $post_this_article_to_instagram = 'N';
             $in_instagram_box = 'N';
 
@@ -650,113 +707,154 @@ if (!class_exists('wp2instagram')) {
 
                             list($originalWidth, $originalHeight) = getimagesize($photo);
 
-                            if ($bypass_control == 'N') {
-                                if ($originalWidth > 1080) {
-                                    $instagram_post_upload_status = 'Width too big for Instagram - must be less than 1080px';
-                                    update_post_meta($ID, 'instagram_post_upload_status', json_encode($instagram_post_upload_status));
-                                    echo $instagram_post_upload_status."\n";
-                                    exit(0);
-                                }
+							
+							if ( ( $originalWidth > 0 ) &&  ( $originalHeight > 0 ) ) {
+					
+						
+								if ($bypass_control == 'N') {
+									if ($originalWidth > 1080) {
+										$instagram_post_upload_status = 'Width too big for Instagram - must be less than 1080px';
+										update_post_meta($ID, 'instagram_post_upload_status', json_encode($instagram_post_upload_status));
+										echo $instagram_post_upload_status."\n";
+										exit(0);
+									}
 
-                                if ($originalHeight > 1080) {
-                                    $instagram_post_upload_status = 'Height too big for Instagram - must be less than 1080px';
-                                    update_post_meta($ID, 'instagram_post_upload_status', json_encode($instagram_post_upload_status));
-                                    echo $instagram_post_upload_status."\n";
-                                    exit(0);
-                                }
+									if ($originalHeight > 1080) {
+										$instagram_post_upload_status = 'Height too big for Instagram - must be less than 1080px';
+										update_post_meta($ID, 'instagram_post_upload_status', json_encode($instagram_post_upload_status));
+										echo $instagram_post_upload_status."\n";
+										exit(0);
+									}
 
-                                if ($originalWidth < 320) {
-                                    $instagram_post_upload_status = 'Width too small for Instagram - must be higher than 320px';
-                                    update_post_meta($ID, 'instagram_post_upload_status', json_encode($instagram_post_upload_status));
-                                    echo $instagram_post_upload_status."\n";
-                                    exit(0);
-                                }
+									if ($originalWidth < 320) {
+										$instagram_post_upload_status = 'Width too small for Instagram - must be higher than 320px';
+										update_post_meta($ID, 'instagram_post_upload_status', json_encode($instagram_post_upload_status));
+										echo $instagram_post_upload_status."\n";
+										exit(0);
+									}
 
-                                if ($originalHeight < 320) {
-                                    $instagram_post_upload_status = 'Height too small for Instagram - must be higher than 320px';
-                                    update_post_meta($ID, 'instagram_post_upload_status', json_encode($instagram_post_upload_status));
-                                    echo $instagram_post_upload_status."\n";
-                                    exit(0);
-                                }
-                            }
+									if ($originalHeight < 320) {
+										$instagram_post_upload_status = 'Height too small for Instagram - must be higher than 320px';
+										update_post_meta($ID, 'instagram_post_upload_status', json_encode($instagram_post_upload_status));
+										echo $instagram_post_upload_status."\n";
+										exit(0);
+									}
+								}
 
-                            if ($resize_image == 'Y') {
-                                $ratio = $originalWidth / $originalHeight;
+								
+								
+								if ($remove_exif == 'Y')  {
+									
+									$ratio = $originalWidth / $originalHeight;
+									$resizeH = $originalHeight;
+									$resizeW = $originalWidth;
+									
+									//let's go and resize picture, that will remove the exif
 
-                                if (($originalWidth > $originalHeight) && ($originalWidth > 1080)) { // landscape picture
+									$origimg = imagecreatefromjpeg($photo);
+									$resizeimg = imagecreatetruecolor($resizeW, $resizeH);
 
-                                    $resizeW = 1080;
-                                    $resizeH = $resizeW / $ratio;
-                                } elseif (($originalWidth < $originalHeight) && ($originalHeight > 1080)) { // portrait picture
+									$white = imagecolorallocate($resizeimg, 255, 255, 255);
+									imagefill($resizeimg, 0, 0, $white);
 
-                                    $resizeH = 1080;
-                                    $resizeW = $resizeH * $ratio;
-                                } elseif (($originalWidth == $originalHeight) && ($originalWidth > 1080)) { // square picture
+									// Crop
 
-                                    $resizeH = 1080;
-                                    $resizeW = 1080;
-                                }
+									imagecopyresized($resizeimg, $origimg, 0, 0, 0, 0, $resizeW, $resizeH, $originalWidth, $originalHeight);
+									imagejpeg($resizeimg, WP2INSTAGRAM_PLUGIN_PATH.'temp.jpg');
+									$photo = WP2INSTAGRAM_PLUGIN_PATH.'temp.jpg';
 
-                                //let's go and resize picture
+									$action_delete = true;
 
-                                $origimg = imagecreatefromjpeg($photo);
-                                $resizeimg = imagecreatetruecolor($resizeW, $resizeH);
+									list($originalWidth, $originalHeight) = getimagesize($photo);
+									
+								}
+								
+	
+								
+								if ($resize_image == 'Y')  {
+									$ratio = $originalWidth / $originalHeight;
 
-                                $white = imagecolorallocate($resizeimg, 255, 255, 255);
-                                imagefill($resizeimg, 0, 0, $white);
+									if (($originalWidth > $originalHeight) && ($originalWidth > 1080)) { // landscape picture
 
-                                // Crop
+										$resizeW = 1080;
+										$resizeH = $resizeW / $ratio;
+									} elseif (($originalWidth < $originalHeight) && ($originalHeight > 1080)) { // portrait picture
 
-                                imagecopyresized($resizeimg, $origimg, 0, 0, 0, 0, $resizeW, $resizeH, $originalWidth, $originalHeight);
-                                imagejpeg($resizeimg, WP2INSTAGRAM_PLUGIN_PATH.'temp.jpg');
-                                $photo = WP2INSTAGRAM_PLUGIN_PATH.'temp.jpg';
+										$resizeH = 1080;
+										$resizeW = $resizeH * $ratio;
+									} elseif (($originalWidth == $originalHeight) && ($originalWidth > 1080)) { // square picture
 
-                                $action_delete = true;
+										$resizeH = 1080;
+										$resizeW = 1080;
+									} else { // picture size is lower than 1080 but bigger than 320 , so we keep the original size 
+									
+										$resizeH = $originalHeight;
+										$resizeW = $originalWidth;
+									}
 
-                                list($originalWidth, $originalHeight) = getimagesize($photo);
-                            }
+									//let's go and resize picture
 
-                            $ratio = $originalWidth / $originalHeight;
+									$origimg = imagecreatefromjpeg($photo);
+									$resizeimg = imagecreatetruecolor($resizeW, $resizeH);
 
-                            if ($ratio < 0.8) {
-                                $cropH = $originalHeight;
-                                $cropW = $originalHeight * 0.8 + 2;
-                                $X = ($cropW - $originalWidth) / 2;
+									$white = imagecolorallocate($resizeimg, 255, 255, 255);
+									imagefill($resizeimg, 0, 0, $white);
 
-                                $origimg = imagecreatefromjpeg($photo);
-                                $cropimg = imagecreatetruecolor($cropW, $cropH);
+									// Crop
 
-                                $white = imagecolorallocate($cropimg, 255, 255, 255);
-                                imagefill($cropimg, 0, 0, $white);
+									imagecopyresized($resizeimg, $origimg, 0, 0, 0, 0, $resizeW, $resizeH, $originalWidth, $originalHeight);
+									imagejpeg($resizeimg, WP2INSTAGRAM_PLUGIN_PATH.'temp.jpg');
+									$photo = WP2INSTAGRAM_PLUGIN_PATH.'temp.jpg';
 
-                                // Crop
+									$action_delete = true;
 
-                                imagecopyresized($cropimg, $origimg, $X, 0, 0, 0, $originalWidth, $originalHeight, $originalWidth, $originalHeight);
-                                imagejpeg($cropimg, WP2INSTAGRAM_PLUGIN_PATH.'temp.jpg');
-                                $photo = WP2INSTAGRAM_PLUGIN_PATH.'temp.jpg';
+									list($originalWidth, $originalHeight) = getimagesize($photo);
+								}
 
-                                $action_delete = true;
-                            } elseif ($ratio > 1.77) { // case of a panoramic above a 16:9 ratio
+								$ratio = $originalWidth / $originalHeight;
 
-                                $cropW = $originalWidth;
-                                $cropH = ($originalWidth - $originalHeight) + 2;
-                                $Y = ($cropH - $originalHeight) / 2;
+								if ($ratio < 0.8) {
+									$cropH = $originalHeight;
+									$cropW = $originalHeight * 0.8 + 2;
+									$X = ($cropW - $originalWidth) / 2;
 
-                                $origimg = imagecreatefromjpeg($photo);
-                                $cropimg = imagecreatetruecolor($cropW, $cropH);
+									$origimg = imagecreatefromjpeg($photo);
+									$cropimg = imagecreatetruecolor($cropW, $cropH);
 
-                                $white = imagecolorallocate($cropimg, 255, 255, 255);
-                                imagefill($cropimg, 0, 0, $white);
+									$white = imagecolorallocate($cropimg, 255, 255, 255);
+									imagefill($cropimg, 0, 0, $white);
 
-                                // Crop
+									// Crop
 
-                                imagecopyresized($cropimg, $origimg, 0, $Y, 0, 0, $originalWidth, $originalHeight, $originalWidth, $originalHeight);
-                                imagejpeg($cropimg, WP2INSTAGRAM_PLUGIN_PATH.'temp.jpg');
-                                $photo = WP2INSTAGRAM_PLUGIN_PATH.'temp.jpg';
+									imagecopyresized($cropimg, $origimg, $X, 0, 0, 0, $originalWidth, $originalHeight, $originalWidth, $originalHeight);
+									imagejpeg($cropimg, WP2INSTAGRAM_PLUGIN_PATH.'temp.jpg');
+									$photo = WP2INSTAGRAM_PLUGIN_PATH.'temp.jpg';
 
-                                $action_delete = true;
-                            }
+									$action_delete = true;
+								} elseif ($ratio > 1.77) { // case of a panoramic above a 16:9 ratio
 
+									$cropW = $originalWidth;
+									$cropH = ($originalWidth - $originalHeight) + 2;
+									$Y = ($cropH - $originalHeight) / 2;
+
+									$origimg = imagecreatefromjpeg($photo);
+									$cropimg = imagecreatetruecolor($cropW, $cropH);
+
+									$white = imagecolorallocate($cropimg, 255, 255, 255);
+									imagefill($cropimg, 0, 0, $white);
+
+									// Crop
+
+									imagecopyresized($cropimg, $origimg, 0, $Y, 0, 0, $originalWidth, $originalHeight, $originalWidth, $originalHeight);
+									imagejpeg($cropimg, WP2INSTAGRAM_PLUGIN_PATH.'temp.jpg');
+									$photo = WP2INSTAGRAM_PLUGIN_PATH.'temp.jpg';
+
+									$action_delete = true;
+								}
+
+							}
+							
+							
                             $debug = false;
 
                             $debug_mode = get_option('wp2instagram_debug', '');
@@ -868,6 +966,23 @@ if (!class_exists('wp2instagram')) {
                                 $replace_accents_in_tags_of_post = 'N';
                             }
 
+							
+							$use_title_words_of_post = get_option('wp2instagram_use_title_words_of_post', '');
+                            if ($use_title_words_of_post == false || $use_title_words_of_post == 'null') {
+                                $use_title_words_of_post = 'Y';
+                            } else {
+                                $use_title_words_of_post = json_decode($use_title_words_of_post);
+                            }
+
+                            if (empty($use_title_words_of_post)) {
+                                $use_title_words_of_post = 'Y';
+                            }
+                            if ($use_title_words_of_post != 'Y') {
+                                $use_title_words_of_post = 'N';
+                            }
+							
+							
+							
                             $use_tags_of_post = get_option('wp2instagram_use_tags_of_post', '');
                             if ($use_tags_of_post == false || $use_tags_of_post == 'null') {
                                 $use_tags_of_post = 'Y';
@@ -973,6 +1088,36 @@ if (!class_exists('wp2instagram')) {
                                     $number_of_hashtags++;
                                 }
                             }
+							
+							
+							// Now process tags associated to post title
+							
+							if ($use_title_words_of_post == 'Y') {
+							
+								if (empty($caption)) {
+									$title_words_hashtags_list = [''];
+								} else {
+									$title_words_hashtags_list = explode(' ', $caption);
+								}
+							
+								foreach ($title_words_hashtags_list as $tag) {
+									$instagram_tag = str_replace($bad_char, '', $tag);
+
+									if ($replace_accents_in_tags_of_post == 'Y') {
+										$instagram_tag = str_replace(array_keys($replace_accents), array_values($replace_accents), $instagram_tag);
+									}
+									if ($sanitize_tags_of_post == 'Y') {
+										$instagram_tag = str_replace(array_keys($replace_sanitize), array_values($replace_sanitize), $instagram_tag);
+									}
+
+									if ($number_of_hashtags < $max_number_of_hashtags) {
+										$tag_list .= '#'.$instagram_tag.' ';
+										$number_of_hashtags++;
+									}
+								}
+							
+							}
+							
 
                             // Now process tags associated to post
 
@@ -1104,6 +1249,7 @@ if (!class_exists('wp2instagram')) {
                                     $instagram_post_upload_status = 'Something went wrong while uploading your photo: '.$e->getMessage();
                                     update_post_meta($ID, 'instagram_post_upload_status', json_encode($instagram_post_upload_status));
                                     echo $instagram_post_upload_status."\n";
+									exit(0);
                                 }
                             }
 

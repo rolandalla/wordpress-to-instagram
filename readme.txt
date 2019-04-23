@@ -168,3 +168,17 @@ Bug corrected :
 * Fix a bug with debug_mode, thanks to Jan Zikmund
 
 * Tested in Wordpress 5.1
+
+= 1.4.10 =
+
+Bug corrected :
+
+* Fix a bug with getMediaId, thanks to riderxyz - #https://wordpress.org/support/topic/error-when-posting-7/
+
+New features:
+
+* Add post title words as hashtags ( Thanks to marinkom for the feature request )  #https://wordpress.org/support/topic/new-feature-request-add-post-title-words-as-hashtags/
+
+* Add a new feature to remove exif from picture ( This may be be necessary when you have to resolve the issue when you have the message  "unknown server error" ) - #https://wordpress.org/support/topic/not-accepted-by-instagram/
+
+* Tested in Wordpress 5.1.1
