@@ -1,21 +1,21 @@
 <?php
 /*
-Plugin Name: Auto-Post To Instagram
-Plugin URI: http://h-tech.al
-Description: Plugin for automatic posting Wordpress images to Instagram
-Author: Roland, Informatica Duran
-Version: 1.4.10
-Author URI: http://rolandalla.com
+Plugin Name: Auto-Post for Instagram
+Plugin URI: https://wordpress.org/plugins/auto-post-to-instagram/
+Description: Plugin for automatic posting Wordpress images 
+Author: Roland & Informatica Duran
+Version: 1.5.3
+Author URI: https://wordpress.org/plugins/auto-post-to-instagram/
 */
 
 define('WP2INSTAGRAM_PLUGIN_PATH', plugin_dir_path(__FILE__));
 define('WP2INSTAGRAM_PLUGIN_SETTINGS', 'wp2instagram');
 define('WP2INSTAGRAM_PLUGIN_BASE', plugin_basename(__FILE__));
 define('WP2INSTAGRAM_RETURN_URI', strtolower(site_url('/').'wp-admin/options-general.php?page='.WP2INSTAGRAM_PLUGIN_SETTINGS));
-define('WP2INSTAGRAM_VERSION', '1.4.10');
+define('WP2INSTAGRAM_VERSION', '1.5.3');
 
-include WP2INSTAGRAM_PLUGIN_PATH.'autoload.php';
-require WP2INSTAGRAM_PLUGIN_PATH.'mgp25/instagram-php/src/Instagram.php';
+include WP2INSTAGRAM_PLUGIN_PATH.'vendor/autoload.php';
+require WP2INSTAGRAM_PLUGIN_PATH.'vendor/mgp25/instagram-php/src/Instagram.php';
 
 if (!class_exists('wp2instagram')) {
     class wp2instagram
@@ -29,6 +29,167 @@ if (!class_exists('wp2instagram')) {
 
             return $wp2instagram_meta_links;
         }
+
+
+		/**
+		 * wp2instagram_email_headers.
+		 *
+		 * @access public
+		 */
+		public function wp2instagram_email_headers(){
+			$admin_email = get_option( 'admin_email' );
+			if ( empty( $admin_email ) ) {
+				$admin_email = 'support@' . $_SERVER['SERVER_NAME'];
+			}
+
+			$from_name = get_option( 'blogname' );
+
+			$header = "From: \"{$from_name}\" <{$admin_email}>\n";
+			$header.= "MIME-Version: 1.0\r\n";
+			$header.= "Content-Type: text/html; charset=\"" . get_option( 'blog_charset' ) . "\"\n";
+			$header.= "X-Priority: 1\r\n";
+
+			return $header;
+		}
+
+		/**
+		 * wp2instagram_send_email.
+		 *
+		 * @access public
+		 */
+		public function wp2instagram_send_email($email_subject,$message_to_send,$extra_email_addresses){
+
+				$admin_email = get_option( 'admin_email' );
+				if ( empty( $admin_email ) ) {
+					$admin_email = 'postmaster@' . $_SERVER['SERVER_NAME'];
+				}
+
+				$current_user = wp_get_current_user();
+				$user_email = $current_user->user_email;
+				$email_recipients=$user_email.','.$admin_email;
+				if ($extra_email_addresses != '') {
+					$email_recipients.=','.$extra_email_addresses;
+				}
+
+				$email_message = $message_to_send . "\r\n";
+
+				wp_mail($email_recipients, $email_subject, $email_message, $this->wp2instagram_email_headers());
+
+		}
+
+
+		/**
+         * wp2instagram_IG_status.
+         *
+         */
+
+		static function wp2instagram_IG_status($post_id) {
+
+			$IG_status='';
+
+			$green_arrow='<span class="dashicons dashicons-yes" title="Yes" style="color:green;font-size: 200%"></span>';
+			$blue_sticky='<span class="dashicons dashicons-sticky" title="Yes" style="color:blue;font-size: 200%"></span>';
+			$red_cross='<span class="dashicons dashicons-no-alt" title="No" style="color:#a20404;font-size: 200%"></span>';
+
+
+			if (!get_post_meta($post_id, 'firstpublish', $single = true)) {
+                $status = 'Never published'.' '.$blue_sticky;
+                $status_post_date = 'Not yet';
+                $status_upload = 'Not uploaded'.' '.$red_cross;
+                $status_response = '';
+            } else {
+                $status = 'Already published'.' '.$green_arrow;
+            }
+
+			$instagram_post_date = get_post_meta($post_id, 'instagram_post_date', $single = true);
+
+            if ($instagram_post_date != '') {
+                $status_post_date = $instagram_post_date;
+            } else {
+                $status_post_date = 'Unknown';
+            }
+
+			$instagram_post_upload_status = get_post_meta($post_id, 'instagram_post_upload_status', $single = true);
+
+            if ($instagram_post_upload_status != '') {
+                $status_upload = json_decode($instagram_post_upload_status);
+
+				if ($status_upload == 'Uploaded to Instagram') {
+					$status_upload = $status_upload.' '.$green_arrow;
+				} else {
+					$status_upload = $status_upload.' '.$red_cross;
+				}
+
+            } else {
+                $status_upload = '';
+            }
+
+
+			$IG_status='Instagram Status : '.$status.' <br><br>';
+			$IG_status.='Posted : '.$status_post_date.' <br><br>';
+			$IG_status.='Upload info : '.$status_upload.' <br><br>';
+
+			return $IG_status;
+		}
+
+
+
+		/**
+         * wp2instagram_column_head.
+         *
+         * @return defaults
+         */
+
+		public function wp2instagram_column_head($defaults) {
+
+			$defaults['wp2instagram'] = 'Instagram Status';
+			return $defaults;
+		}
+
+		public static function wp2instagram_handle_column_data( $column_name, $post_id ) {
+			$post = get_post( $post_id );
+
+			if ( 'wp2instagram' == $column_name ) {
+
+				$display_IG_status='';
+
+				$display_IG_status = self::wp2instagram_IG_status( $post_id );
+
+				echo $display_IG_status;
+			}
+			return;
+		}
+
+
+		/**
+         * wp2instagram_get_option
+         *
+		 * @access public
+         * @return opt_mode
+         */
+        public static function wp2instagram_get_option($option_name,$option_default_when_not_set, $option_is_of_type_yes_or_no=true) {
+		    $opt_mode = get_option($option_name, '');
+            if ($opt_mode == false || $opt_mode == 'null') {
+                $opt_mode = '';
+            } else {
+                $opt_mode = json_decode($opt_mode);
+            }
+
+            if (empty($opt_mode)) {
+                $opt_mode = $option_default_when_not_set;
+            }
+
+			if ( $option_is_of_type_yes_or_no == true ) {
+
+				if ($opt_mode != 'Y') {
+					$opt_mode = 'N';
+				}
+
+			}
+
+			return $opt_mode;
+		}
+
 
         /**
          * wp2instagram_add_metabox.
@@ -56,91 +217,76 @@ if (!class_exists('wp2instagram')) {
          */
         public function wp2instagram_metabox($post)
         {
-            $dontautopublish = get_option('wp2instagram_dontautopublish');
-            if ($dontautopublish == false || $dontautopublish == 'null') {
-                $dontautopublish = '';
-            } else {
-                $dontautopublish = json_decode($dontautopublish);
-            }
 
-            if (empty($dontautopublish)) {
-                $dontautopublish = 'N';
-            }
-            if ($dontautopublish != 'Y') {
-                $dontautopublish = 'N';
-            }
 
-            $debug_mode = get_option('wp2instagram_debug', '');
-            if ($debug_mode == false || $debug_mode == 'null') {
-                $debug_mode = '';
-            } else {
-                $debug_mode = json_decode($debug_mode);
-            }
 
-            if (empty($debug_mode)) {
-                $debug_mode = 'N';
-            }
-            if ($debug_mode != 'Y') {
-                $debug_mode = 'N';
-            }
+			$dontautopublish = self::wp2instagram_get_option('wp2instagram_dontautopublish','N');
+			$debug_mode = self::wp2instagram_get_option('wp2instagram_debug','N');
 
             $username = get_option('wp2instagram_username', '');
             $instagram_account = 'https://instagram.com/'.$username;
 
-            if (!get_post_meta($post->ID, 'firstpublish', $single = true)) {
-                $status = 'Never published';
-                $status_post_date = 'Not yet';
-                $status_upload = 'Not uploaded';
-                $status_response = '';
-            } else {
-                $status = 'Already published';
-            }
+			$display_IG_status='';
+			$display_IG_status = self::wp2instagram_IG_status( $post->ID );
 
-            $instagram_post_date = get_post_meta($post->ID, 'instagram_post_date', $single = true);
-
-            if ($instagram_post_date != '') {
-                $status_post_date = $instagram_post_date;
-            } else {
-                $status_post_date = 'Unknown';
-            }
-
-            $instagram_post_upload_status = get_post_meta($post->ID, 'instagram_post_upload_status', $single = true);
-
-            if ($instagram_post_upload_status != '') {
-                $status_upload = json_decode($instagram_post_upload_status);
-            } else {
-                $status_upload = '';
-            }
+			$status_response = '';
 
             $instagram_response_status = get_post_meta($post->ID, 'instagram_response_status', $single = true);
             if ($instagram_response_status != '') {
                 $status_response = $instagram_response_status;
             } else {
                 $status_response = '';
-            } ?>
+            }
+
+            $instagram_fullname_status = get_post_meta($post->ID, 'instagram_fullname_status', $single = true);
+            if ($instagram_fullname_status != '') {
+                $status_fullname = $instagram_fullname_status;
+            } else {
+                $status_fullname = '';
+            }
+
+
+
+			$instagram_post_link = get_post_meta($post->ID, 'instagram_post_link', $single = true);
+            if ($instagram_post_link != '') {
+                $status_instagram_post_link = str_replace(array("'", '"'), " ", $instagram_post_link);
+            } else {
+                $status_instagram_post_link = '';
+            }
+
+
+
+			?>
 		<div style="margin: 20px 0;">
 		<input type="hidden" name="wp2instagram_in_instagram_box[]" value="Y">
 		<input type="checkbox" <?php if ($dontautopublish == 'N') {
                 echo 'checked="checked"';
             } ?>value="Y" name="wp2instagram_post_this_article_to_instagram">Post to Instagram<br><br>
-		Instagram Status : <?php echo $status; ?><br><br>
-		Posted : <?php echo $status_post_date; ?><br><br>
-		Upload info : <?php echo $status_upload; ?><br><br>
-		
-		<?php
+		<?
 
+		echo $display_IG_status;
+
+		?>
+
+		Instagram link to your photo : <a href="<?php echo htmlentities($status_instagram_post_link, ENT_QUOTES); ?>"><?php echo htmlentities($status_instagram_post_link, ENT_QUOTES); ?></a><br>
+
+		<?php
         if ($debug_mode == 'Y') {
-            echo 'Instagram response : ';
+            echo '<br>Instagram response : ';
             print_r($status_response);
             echo "<br><br>\n";
-        } ?>	
-		 
-		Your Account : <a href="<?php echo $instagram_account; ?>"><?php echo $instagram_account; ?></a>
+        } ?>
+
+		Your Account <?php echo $status_fullname; ?> : <a href="<?php echo $instagram_account; ?>"><?php echo $instagram_account; ?></a>
 		</div>
-		
-		
+
+
 		<?php
         }
+
+
+
+
 
         /* Plugin loading method */
         public function load_plugin()
@@ -148,6 +294,13 @@ if (!class_exists('wp2instagram')) {
 
             //metabox
             add_action('add_meta_boxes', [$this, 'wp2instagram_add_metabox']);
+
+			//add column for post
+			//add_filter('manage_posts_columns', 'wp2instagram_column_head');
+			add_filter( 'manage_posts_columns',       array( __CLASS__, 'wp2instagram_column_head' ) );
+			add_action( 'manage_posts_custom_column', array( __CLASS__, 'wp2instagram_handle_column_data' ), 10, 2 );
+
+
 
             //settings menu
             add_action('admin_menu', get_class().'::register_settings_menu');
@@ -223,8 +376,10 @@ if (!class_exists('wp2instagram')) {
             $username = get_option('wp2instagram_username', '');
             $password = get_option('wp2instagram_password', '');
             echo '<b>You have to set username and password for your instagram account.</b>'; ?>
+			<b>If you do not have one, you need to create one first here :
+            <a href="https://www.instagram.com/" target="_new" style="font-size:12px">https://www.instagram.com</a></b>
 
-			
+
 
             <form method="post">
                 Username: <input type="text" name="wp2instagram_username" value="<?php echo $username; ?>" /> <br />
@@ -238,76 +393,127 @@ if (!class_exists('wp2instagram')) {
             <?php
 
             if (isset($_REQUEST['submit_post_types'])) {
-                $wp2instagram_additional_hashtags = $_REQUEST['wp2instagram_additional_hashtags'];
+
+
+
+                $wp2instagram_use_proxy = isset($_REQUEST['wp2instagram_use_proxy']) ? $_REQUEST['wp2instagram_use_proxy'] : NULL;
+                $wp2instagram_use_proxy = json_encode($wp2instagram_use_proxy);
+                update_option('wp2instagram_use_proxy', $wp2instagram_use_proxy);
+
+
+				$wp2instagram_ig_proxy = isset($_REQUEST['wp2instagram_ig_proxy']) ? $_REQUEST['wp2instagram_ig_proxy'] : NULL;
+                $wp2instagram_ig_proxy = json_encode($wp2instagram_ig_proxy);
+                update_option('wp2instagram_ig_proxy', $wp2instagram_ig_proxy);
+
+
+
+				$wp2instagram_additional_hashtags = isset($_REQUEST['wp2instagram_additional_hashtags']) ? $_REQUEST['wp2instagram_additional_hashtags'] : NULL;
                 $wp2instagram_additional_hashtags = json_encode($wp2instagram_additional_hashtags);
                 update_option('wp2instagram_additional_hashtags', $wp2instagram_additional_hashtags);
 
-                $wp2instagram_max_number_of_hashtags = $_REQUEST['wp2instagram_max_number_of_hashtags'];
+                $wp2instagram_max_number_of_hashtags = isset($_REQUEST['wp2instagram_max_number_of_hashtags']) ? $_REQUEST['wp2instagram_max_number_of_hashtags'] : NULL;
                 $wp2instagram_max_number_of_hashtags = json_encode($wp2instagram_max_number_of_hashtags);
                 update_option('wp2instagram_max_number_of_hashtags', $wp2instagram_max_number_of_hashtags);
 
 
-                $wp2instagram_use_title_words_of_post = $_REQUEST['wp2instagram_use_title_words_of_post'];
+                $wp2instagram_use_title_words_of_post = isset($_REQUEST['wp2instagram_use_title_words_of_post']) ? $_REQUEST['wp2instagram_use_title_words_of_post'] : NULL;
                 $wp2instagram_use_title_words_of_post = json_encode($wp2instagram_use_title_words_of_post);
                 update_option('wp2instagram_use_title_words_of_post', $wp2instagram_use_title_words_of_post);
 
-                $wp2instagram_use_tags_of_post = $_REQUEST['wp2instagram_use_tags_of_post'];
+                $wp2instagram_use_tags_of_post = isset($_REQUEST['wp2instagram_use_tags_of_post']) ? $_REQUEST['wp2instagram_use_tags_of_post'] : NULL;
                 $wp2instagram_use_tags_of_post = json_encode($wp2instagram_use_tags_of_post);
                 update_option('wp2instagram_use_tags_of_post', $wp2instagram_use_tags_of_post);
 
-                $wp2instagram_use_categories_of_post = $_REQUEST['wp2instagram_use_categories_of_post'];
+                $wp2instagram_use_categories_of_post = isset($_REQUEST['wp2instagram_use_categories_of_post']) ? $_REQUEST['wp2instagram_use_categories_of_post'] : NULL;
                 $wp2instagram_use_categories_of_post = json_encode($wp2instagram_use_categories_of_post);
                 update_option('wp2instagram_use_categories_of_post', $wp2instagram_use_categories_of_post);
 
-                $wp2instagram_replace_accents = $_REQUEST['wp2instagram_replace_accents'];
+
+                $wp2instagram_use_of_excerpt = isset($_REQUEST['wp2instagram_use_of_excerpt']) ? $_REQUEST['wp2instagram_use_of_excerpt'] : NULL;
+                $wp2instagram_use_of_excerpt = json_encode($wp2instagram_use_of_excerpt);
+                update_option('wp2instagram_use_of_excerpt', $wp2instagram_use_of_excerpt);
+
+
+                $wp2instagram_max_number_of_words_in_excerpt = isset($_REQUEST['wp2instagram_max_number_of_words_in_excerpt']) ? $_REQUEST['wp2instagram_max_number_of_words_in_excerpt'] : NULL;
+                $wp2instagram_max_number_of_words_in_excerpt = json_encode($wp2instagram_max_number_of_words_in_excerpt);
+                update_option('wp2instagram_max_number_of_words_in_excerpt', $wp2instagram_max_number_of_words_in_excerpt);
+
+                $wp2instagram_replace_accents = isset($_REQUEST['wp2instagram_replace_accents']) ? $_REQUEST['wp2instagram_replace_accents'] : NULL;
                 $wp2instagram_replace_accents = json_encode($wp2instagram_replace_accents);
                 update_option('wp2instagram_replace_accents', $wp2instagram_replace_accents);
 
-                $wp2instagram_sanitize = $_REQUEST['wp2instagram_sanitize'];
+                $wp2instagram_sanitize = isset($_REQUEST['wp2instagram_sanitize']) ? $_REQUEST['wp2instagram_sanitize'] : NULL;
                 $wp2instagram_sanitize = json_encode($wp2instagram_sanitize);
                 update_option('wp2instagram_sanitize', $wp2instagram_sanitize);
 
-                $wp2instagram_author = $_REQUEST['wp2instagram_author'];
+                $wp2instagram_author = isset($_REQUEST['wp2instagram_author']) ? $_REQUEST['wp2instagram_author'] : NULL;
                 $wp2instagram_author = json_encode($wp2instagram_author);
                 update_option('wp2instagram_author', $wp2instagram_author);
 
-                $wp2instagram_author_caption = $_REQUEST['wp2instagram_author_caption'];
+                $wp2instagram_author_caption = isset($_REQUEST['wp2instagram_author_caption']) ? $_REQUEST['wp2instagram_author_caption'] : NULL;
                 $wp2instagram_author_caption = json_encode($wp2instagram_author_caption);
                 update_option('wp2instagram_author_caption', $wp2instagram_author_caption);
 
-                $wp2instagram_header_caption = $_REQUEST['wp2instagram_header_caption'];
+                $wp2instagram_header_caption = isset($_REQUEST['wp2instagram_header_caption']) ? $_REQUEST['wp2instagram_header_caption'] : NULL;
                 $wp2instagram_header_caption = json_encode($wp2instagram_header_caption);
                 update_option('wp2instagram_header_caption', $wp2instagram_header_caption);
 
-                $wp2instagram_footer_caption = $_REQUEST['wp2instagram_footer_caption'];
+                $wp2instagram_footer_caption = isset($_REQUEST['wp2instagram_footer_caption']) ? $_REQUEST['wp2instagram_footer_caption'] : NULL;
                 $wp2instagram_footer_caption = json_encode($wp2instagram_footer_caption);
                 update_option('wp2instagram_footer_caption', $wp2instagram_footer_caption);
 
-                $wp2instagram_post_types = $_REQUEST['wp2instagram_post_types'];
+                $wp2instagram_post_types = isset($_REQUEST['wp2instagram_post_types']) ? $_REQUEST['wp2instagram_post_types'] : NULL;
                 $wp2instagram_post_types = json_encode($wp2instagram_post_types);
                 update_option('wp2instagram_post_types', $wp2instagram_post_types);
 
-                $wp2instagram_dontautopublish = $_REQUEST['wp2instagram_dontautopublish'];
+                $wp2instagram_dontautopublish = isset($_REQUEST['wp2instagram_dontautopublish']) ? $_REQUEST['wp2instagram_dontautopublish'] : NULL;
                 $wp2instagram_dontautopublish = json_encode($wp2instagram_dontautopublish);
                 update_option('wp2instagram_dontautopublish', $wp2instagram_dontautopublish);
 
-                $wp2instagram_bypass_control = $_REQUEST['wp2instagram_bypass_control'];
+                $wp2instagram_bypass_control = isset($_REQUEST['wp2instagram_bypass_control']) ? $_REQUEST['wp2instagram_bypass_control'] : NULL;
                 $wp2instagram_bypass_control = json_encode($wp2instagram_bypass_control);
                 update_option('wp2instagram_bypass_control', $wp2instagram_bypass_control);
 
-                $wp2instagram_resize_image = $_REQUEST['wp2instagram_resize_image'];
+                $wp2instagram_resize_image = isset($_REQUEST['wp2instagram_resize_image']) ? $_REQUEST['wp2instagram_resize_image'] : NULL;
                 $wp2instagram_resize_image = json_encode($wp2instagram_resize_image);
                 update_option('wp2instagram_resize_image', $wp2instagram_resize_image);
 
-                $wp2instagram_remove_exif_image = $_REQUEST['wp2instagram_remove_exif_image'];
+                $wp2instagram_remove_exif_image = isset($_REQUEST['wp2instagram_remove_exif_image']) ? $_REQUEST['wp2instagram_remove_exif_image'] : NULL;
                 $wp2instagram_remove_exif_image = json_encode($wp2instagram_remove_exif_image);
                 update_option('wp2instagram_remove_exif_image', $wp2instagram_remove_exif_image);
 
-                $wp2instagram_debug = $_REQUEST['wp2instagram_debug'];
+                $wp2instagram_receive_mail_if_ig_post_good = isset($_REQUEST['wp2instagram_receive_mail_if_ig_post_good']) ? $_REQUEST['wp2instagram_receive_mail_if_ig_post_good'] : NULL;
+                $wp2instagram_receive_mail_if_ig_post_good = json_encode($wp2instagram_receive_mail_if_ig_post_good);
+                update_option('wp2instagram_receive_mail_if_ig_post_good', $wp2instagram_receive_mail_if_ig_post_good);
+
+                $wp2instagram_receive_mail_if_ig_post_bad = isset($_REQUEST['wp2instagram_receive_mail_if_ig_post_bad']) ? $_REQUEST['wp2instagram_receive_mail_if_ig_post_bad'] : NULL;
+                $wp2instagram_receive_mail_if_ig_post_bad = json_encode($wp2instagram_receive_mail_if_ig_post_bad);
+                update_option('wp2instagram_receive_mail_if_ig_post_bad', $wp2instagram_receive_mail_if_ig_post_bad);
+
+                $wp2instagram_attach_post_link_to_caption = isset($_REQUEST['wp2instagram_attach_post_link_to_caption']) ? $_REQUEST['wp2instagram_attach_post_link_to_caption'] : NULL;
+                $wp2instagram_attach_post_link_to_caption = json_encode($wp2instagram_attach_post_link_to_caption);
+                update_option('wp2instagram_attach_post_link_to_caption', $wp2instagram_attach_post_link_to_caption);
+
+                $wp2instagram_use_additional_email_addresses = isset($_REQUEST['wp2instagram_use_additional_email_addresses']) ? $_REQUEST['wp2instagram_use_additional_email_addresses'] : NULL;
+                $wp2instagram_use_additional_email_addresses = json_encode($wp2instagram_use_additional_email_addresses);
+                update_option('wp2instagram_use_additional_email_addresses', $wp2instagram_use_additional_email_addresses);
+
+				$wp2instagram_additional_email_addresses = isset($_REQUEST['wp2instagram_additional_email_addresses']) ? $_REQUEST['wp2instagram_additional_email_addresses'] : NULL;
+                $wp2instagram_additional_email_addresses = json_encode($wp2instagram_additional_email_addresses);
+                update_option('wp2instagram_additional_email_addresses', $wp2instagram_additional_email_addresses);
+
+                $wp2instagram_debug = isset($_REQUEST['wp2instagram_debug']) ? $_REQUEST['wp2instagram_debug'] : NULL;
                 $wp2instagram_debug = json_encode($wp2instagram_debug);
                 update_option('wp2instagram_debug', $wp2instagram_debug);
 
                 echo '<p><b>Post types save!</b></p>';
+            }
+
+            $wp2instagram_ig_proxy = get_option('wp2instagram_ig_proxy');
+            if ($wp2instagram_ig_proxy == false || $wp2instagram_ig_proxy == 'null') {
+                $wp2instagram_ig_proxy = '';
+            } else {
+                $wp2instagram_ig_proxy = json_decode($wp2instagram_ig_proxy);
             }
 
             $wp2instagram_additional_hashtags = get_option('wp2instagram_additional_hashtags');
@@ -317,6 +523,9 @@ if (!class_exists('wp2instagram')) {
                 $wp2instagram_additional_hashtags = json_decode($wp2instagram_additional_hashtags);
             }
 
+
+
+
             $wp2instagram_max_number_of_hashtags = get_option('wp2instagram_max_number_of_hashtags');
             if ($wp2instagram_max_number_of_hashtags == false || $wp2instagram_max_number_of_hashtags == 'null') {
                 $wp2instagram_max_number_of_hashtags = '';
@@ -324,68 +533,31 @@ if (!class_exists('wp2instagram')) {
                 $wp2instagram_max_number_of_hashtags = json_decode($wp2instagram_max_number_of_hashtags);
             }
 
-            $wp2instagram_use_title_words_of_post = get_option('wp2instagram_use_title_words_of_post');
-            if ($wp2instagram_use_title_words_of_post == false || $wp2instagram_use_title_words_of_post == 'null') {
-                $wp2instagram_use_title_words_of_post = '';
+
+			$wp2instagram_use_proxy = self::wp2instagram_get_option('wp2instagram_use_proxy','N');
+
+
+			$wp2instagram_use_title_words_of_post = self::wp2instagram_get_option('wp2instagram_use_title_words_of_post','N');
+			$wp2instagram_use_tags_of_post = self::wp2instagram_get_option('wp2instagram_use_tags_of_post','N');
+			$wp2instagram_use_categories_of_post = self::wp2instagram_get_option('wp2instagram_use_categories_of_post','N');
+			$wp2instagram_use_of_excerpt = self::wp2instagram_get_option('wp2instagram_use_of_excerpt','N');
+
+            $wp2instagram_max_number_of_words_in_excerpt = get_option('wp2instagram_max_number_of_words_in_excerpt');
+            if ($wp2instagram_max_number_of_words_in_excerpt == false || $wp2instagram_max_number_of_words_in_excerpt == 'null') {
+                $wp2instagram_max_number_of_words_in_excerpt = '';
             } else {
-                $wp2instagram_use_title_words_of_post = json_decode($wp2instagram_use_title_words_of_post);
+                $wp2instagram_max_number_of_words_in_excerpt = json_decode($wp2instagram_max_number_of_words_in_excerpt);
             }
 
-            $wp2instagram_use_tags_of_post = get_option('wp2instagram_use_tags_of_post');
-            if ($wp2instagram_use_tags_of_post == false || $wp2instagram_use_tags_of_post == 'null') {
-                $wp2instagram_use_tags_of_post = '';
-            } else {
-                $wp2instagram_use_tags_of_post = json_decode($wp2instagram_use_tags_of_post);
-            }
 
-            $wp2instagram_use_categories_of_post = get_option('wp2instagram_use_categories_of_post');
-            if ($wp2instagram_use_categories_of_post == false || $wp2instagram_use_categories_of_post == 'null') {
-                $wp2instagram_use_categories_of_post = '';
-            } else {
-                $wp2instagram_use_categories_of_post = json_decode($wp2instagram_use_categories_of_post);
-            }
+			$wp2instagram_replace_accents = self::wp2instagram_get_option('wp2instagram_replace_accents','N');
+			$wp2instagram_sanitize = self::wp2instagram_get_option('wp2instagram_sanitize','N');
+			$wp2instagram_author = self::wp2instagram_get_option('wp2instagram_author','N');
 
-            $wp2instagram_replace_accents = get_option('wp2instagram_replace_accents');
-            if ($wp2instagram_replace_accents == false || $wp2instagram_replace_accents == 'null') {
-                $wp2instagram_replace_accents = '';
-            } else {
-                $wp2instagram_replace_accents = json_decode($wp2instagram_replace_accents);
-            }
+			$wp2instagram_author_caption = self::wp2instagram_get_option('wp2instagram_author_caption','',false);
+			$wp2instagram_header_caption = self::wp2instagram_get_option('wp2instagram_header_caption','',false);
+			$wp2instagram_footer_caption = self::wp2instagram_get_option('wp2instagram_footer_caption','',false);
 
-            $wp2instagram_sanitize = get_option('wp2instagram_sanitize');
-            if ($wp2instagram_sanitize == false || $wp2instagram_sanitize == 'null') {
-                $wp2instagram_sanitize = '';
-            } else {
-                $wp2instagram_sanitize = json_decode($wp2instagram_sanitize);
-            }
-
-            $wp2instagram_author = get_option('wp2instagram_author');
-            if ($wp2instagram_author == false || $wp2instagram_author == 'null') {
-                $wp2instagram_author = '';
-            } else {
-                $wp2instagram_author = json_decode($wp2instagram_author);
-            }
-
-            $wp2instagram_author_caption = get_option('wp2instagram_author_caption');
-            if ($wp2instagram_author_caption == false || $wp2instagram_author_caption == 'null') {
-                $wp2instagram_author_caption = '';
-            } else {
-                $wp2instagram_author_caption = json_decode($wp2instagram_author_caption);
-            }
-
-            $wp2instagram_header_caption = get_option('wp2instagram_header_caption');
-            if ($wp2instagram_header_caption == false || $wp2instagram_header_caption == 'null') {
-                $wp2instagram_header_caption = '';
-            } else {
-                $wp2instagram_header_caption = json_decode($wp2instagram_header_caption);
-            }
-
-            $wp2instagram_footer_caption = get_option('wp2instagram_footer_caption');
-            if ($wp2instagram_footer_caption == false || $wp2instagram_footer_caption == 'null') {
-                $wp2instagram_footer_caption = '';
-            } else {
-                $wp2instagram_footer_caption = json_decode($wp2instagram_footer_caption);
-            }
 
             $wp2instagram_post_types = get_option('wp2instagram_post_types');
             if ($wp2instagram_post_types == false || $wp2instagram_post_types == 'null') {
@@ -394,42 +566,56 @@ if (!class_exists('wp2instagram')) {
                 $wp2instagram_post_types = json_decode($wp2instagram_post_types);
             }
 
-            $wp2instagram_bypass_control = get_option('wp2instagram_bypass_control ');
-            if ($wp2instagram_bypass_control == false || $wp2instagram_bypass_control == 'null') {
-                $wp2instagram_bypass_control = '';
-            } else {
-                $wp2instagram_bypass_control = json_decode($wp2instagram_bypass_control);
-            }
+			$wp2instagram_bypass_control = self::wp2instagram_get_option('wp2instagram_bypass_control','N');
+			$wp2instagram_resize_image = self::wp2instagram_get_option('wp2instagram_resize_image','N');
 
-            $wp2instagram_resize_image = get_option('wp2instagram_resize_image');
-            if ($wp2instagram_resize_image == false || $wp2instagram_resize_image == 'null') {
-                $wp2instagram_resize_image = '';
-            } else {
-                $wp2instagram_resize_image = json_decode($wp2instagram_resize_image);
-            }
+			$wp2instagram_remove_exif_image = self::wp2instagram_get_option('wp2instagram_remove_exif_image','N');
 
-            $wp2instagram_remove_exif_image = get_option('wp2instagram_remove_exif_image');
-            if ($wp2instagram_remove_exif_image == false || $wp2instagram_remove_exif_image == 'null') {
-                $wp2instagram_remove_exif_image = '';
-            } else {
-                $wp2instagram_remove_exif_image = json_decode($wp2instagram_remove_exif_image);
-            }
-			
-			
-			
-            $wp2instagram_dontautopublish = get_option('wp2instagram_dontautopublish');
-            if ($wp2instagram_dontautopublish == false || $wp2instagram_dontautopublish == 'null') {
-                $wp2instagram_dontautopublish = '';
-            } else {
-                $wp2instagram_dontautopublish = json_decode($wp2instagram_dontautopublish);
-            }
+			$wp2instagram_dontautopublish = self::wp2instagram_get_option('wp2instagram_dontautopublish','N');
 
-            $wp2instagram_debug = get_option('wp2instagram_debug');
-            if ($wp2instagram_debug == false || $wp2instagram_debug == 'null') {
-                $wp2instagram_debug = '';
-            } else {
-                $wp2instagram_debug = json_decode($wp2instagram_debug);
-            }
+			$wp2instagram_receive_mail_if_ig_post_good = self::wp2instagram_get_option('wp2instagram_receive_mail_if_ig_post_good','N');
+			$wp2instagram_receive_mail_if_ig_post_bad = self::wp2instagram_get_option('wp2instagram_receive_mail_if_ig_post_bad','N');
+			$wp2instagram_attach_post_link_to_caption = self::wp2instagram_get_option('wp2instagram_attach_post_link_to_caption','N');
+			$wp2instagram_use_additional_email_addresses = self::wp2instagram_get_option('wp2instagram_use_additional_email_addresses','N');
+			$wp2instagram_additional_email_addresses = self::wp2instagram_get_option('wp2instagram_additional_email_addresses','',false);
+
+			//Validate email, and remove extra char from email addresses
+
+			$wp2instagram_sanitized_additional_email_addresses ='';
+			$number_of_sanitized_email_address=0;
+
+			if (empty($wp2instagram_additional_email_addresses)) {
+				$wp2instagram_additional_email_addresses_list = [''];
+			} else {
+				$wp2instagram_additional_email_addresses_list = explode(',', $wp2instagram_additional_email_addresses);
+			}
+
+			foreach ($wp2instagram_additional_email_addresses_list as $unique_email_address) {
+				$sanitized_unique_email_address = sanitize_email($unique_email_address);
+
+				if (strlen($sanitized_unique_email_address) > 0 ) {
+
+					if ($number_of_sanitized_email_address == 0 ) {
+						$wp2instagram_sanitized_additional_email_addresses = $sanitized_unique_email_address;
+					} else {
+						$wp2instagram_sanitized_additional_email_addresses .= ','.$sanitized_unique_email_address;
+					}
+
+					$number_of_sanitized_email_address++;
+
+				}
+
+			}
+
+			$wp2instagram_additional_email_addresses = $wp2instagram_sanitized_additional_email_addresses;
+
+
+
+			$wp2instagram_debug = self::wp2instagram_get_option('wp2instagram_debug','N');
+
+			$current_user = wp_get_current_user();
+			$user_email = $current_user->user_email;
+
 
             $args = [
                '_builtin' => false,
@@ -451,7 +637,7 @@ if (!class_exists('wp2instagram')) {
             <?php
             foreach ($pts as $post_type) {
                 ?>
-                <input type="checkbox" name="wp2instagram_post_types[]" 
+                <input type="checkbox" name="wp2instagram_post_types[]"
                     <?php
 
                     if (in_array($post_type, $wp2instagram_post_types)) {
@@ -463,6 +649,32 @@ if (!class_exists('wp2instagram')) {
                 <?php
             } ?>
 
+			<br/><br/><br/>
+			<h3>Proxy settings</h3>
+			<hr/>
+			
+			<table cellpadding="2">
+			
+			<tr>
+				<td>Use a proxy to connect to Instagram</td>
+				<td><input type="checkbox" <?php if ($wp2instagram_use_proxy == 'Y') {
+                echo 'checked="checked"';
+            } ?>value="Y" name="wp2instagram_use_proxy"></td>
+				<td>Check this box if you want to use proxy to Instagram.
+			</td>
+			<tr>
+				<td align="top">Proxy</td>
+				<td align="top"><input type="text" name="wp2instagram_ig_proxy" size="100" placeholder="https://user:pass@proxyserver:port" value="<?php echo $wp2instagram_ig_proxy; ?>"></td>
+				<td>Proxy to use - Used only if <i>Use a proxy to connect to Instagram</i> is checked <br/>
+				<b>If you do not have one, you may find some ( Free or Premium ) below :</br>
+				- Free Proxies : <a href="https://free-proxy-list.net/" target="_new" style="font-size:12px">https://free-proxy-list.net/</a></br>
+				- Instagram Proxies <a href="https://hide-ip-proxy.com/what-is-instagram-proxy/" target="_new" style="font-size:12px">https://hide-ip-proxy.com/what-is-instagram-proxy/</a></b>
+				</td>
+			</tr>
+
+			</table> 
+			<h3>Caption & Hashtags settings</h3>
+			<hr/>
 			<br/><br/><br/>
 			<table cellpadding="2">
 			<tr>
@@ -484,6 +696,7 @@ if (!class_exists('wp2instagram')) {
             } ?>value="Y" name="wp2instagram_use_title_words_of_post"></td>
 				<td>Check the box if you want to use it - For example if the post title is “The Lazy Brown Dog” then as additional hashtags it adds “#the #lazy #brown #dog”
 			</td>
+			</tr>
 			<tr>
 				<td>Also use tags of post as hashtags</td>
 				<td><input type="checkbox" <?php if ($wp2instagram_use_tags_of_post == 'Y') {
@@ -491,6 +704,7 @@ if (!class_exists('wp2instagram')) {
             } ?>value="Y" name="wp2instagram_use_tags_of_post"></td>
 				<td>Check the box if you want to use it.
 			</td>
+			</tr>
 			<tr>
 				<td>Also use categories of post as hashtags</td>
 				<td><input type="checkbox" <?php if ($wp2instagram_use_categories_of_post == 'Y') {
@@ -498,6 +712,7 @@ if (!class_exists('wp2instagram')) {
             } ?>value="Y" name="wp2instagram_use_categories_of_post"></td>
 				<td>Check the box if you want to use it.
 			</td>
+			</tr>
 			<tr>
 				<td align="top">Add this header to caption</td>
 				<td align="top"><input type="text" name="wp2instagram_header_caption" size="100" value="<?php echo $wp2instagram_header_caption; ?>"></td>
@@ -520,10 +735,32 @@ if (!class_exists('wp2instagram')) {
 			<tr>
 				<td align="top">Add this author label to caption</td>
 				<td align="top"><input type="text" name="wp2instagram_author_caption" size="100" value="<?php echo $wp2instagram_author_caption; ?>"></td>
-				<td>This text will be placed after Title and before hashgtags - Used only if Author's name in header caption is checked <br/>
+				<td>This text will be placed after Title and before hashgtags - Used only if <i>Include Author's name in header caption</i> is checked <br/>
 				</td>
 			</tr>
 
+			<tr>
+				<td>Attach post link to caption</td>
+				<td><input type="checkbox" <?php if ($wp2instagram_attach_post_link_to_caption == 'Y') {
+                echo 'checked="checked"';
+            } ?>value="Y" name="wp2instagram_attach_post_link_to_caption"></td>
+				<td>Check the box if you want to attach the post link to the caption - It will be insterted after the footer.
+			</td>
+			</tr>
+			<tr>
+				<td>Use of excerpt</td>
+				<td><input type="checkbox" <?php if ($wp2instagram_use_of_excerpt == 'Y') {
+                echo 'checked="checked"';
+            } ?>value="Y" name="wp2instagram_use_of_excerpt"></td>
+				<td>Check the box if you want to use an excerpt of your post as description (or text) in Instagram.
+			</td>
+			</tr>
+			<tr>
+				<td align="top">Maximum number of words in excerpt</td>
+				<td align="top"><input type="number" name="wp2instagram_max_number_of_words_in_excerpt" min="0" max="1500" value="<?php echo $wp2instagram_max_number_of_words_in_excerpt; ?>"></td>
+				<td>Number of words to use from your post exceprt - choose between 0 and 1500 - This text will be placed after the hashgtags and before the footer - Used only if <i>Use of excerpt</i> is checked <br/>
+				</td>
+			</tr>
 			<tr>
 				<td>Replace accents from hashtags</td>
 				<td><input type="checkbox" <?php if ($wp2instagram_replace_accents == 'Y') {
@@ -531,6 +768,7 @@ if (!class_exists('wp2instagram')) {
             } ?>value="Y" name="wp2instagram_replace_accents"></td>
 				<td>Check the box if you want to replace accents with their equivalents without ( Eg ùÙüÜïÎÏàÀôöÔÖÈÉËÊéèê ).
 			</td>
+			</tr>
 			<tr>
 				<td>Sanitize hashtags</td>
 				<td><input type="checkbox" <?php if ($wp2instagram_sanitize == 'Y') {
@@ -538,7 +776,7 @@ if (!class_exists('wp2instagram')) {
             } ?>value="Y" name="wp2instagram_sanitize"></td>
 				<td>Check the box if you want to sanitize your hastags ( Eg remove hyphen (-), underscore (_) ).
 			</td>
-			
+			</tr>
 			<tr>
 				<td>Do not auto publish new posts</td>
 				<td><input type="checkbox" <?php if ($wp2instagram_dontautopublish == 'Y') {
@@ -546,7 +784,7 @@ if (!class_exists('wp2instagram')) {
             } ?>value="Y" name="wp2instagram_dontautopublish"></td>
 				<td>Check the box if you do not want to have all new posts published to Instagram.
 			</td>
-
+			</tr>
 			<tr>
 				<td>Bypass control of width and height</td>
 				<td><input type="checkbox" <?php if ($wp2instagram_bypass_control == 'Y') {
@@ -554,7 +792,7 @@ if (!class_exists('wp2instagram')) {
             } ?>value="Y" name="wp2instagram_bypass_control"></td>
 				<td>Check the box if you do not want any control of width or height before sending your picture to Instagram (May be refused by instagram).
 			</td>
-			
+			</tr>
 			<tr>
 				<td>Resize picture if needed</td>
 				<td><input type="checkbox" <?php if ($wp2instagram_resize_image == 'Y') {
@@ -562,7 +800,7 @@ if (!class_exists('wp2instagram')) {
             } ?>value="Y" name="wp2instagram_resize_image"></td>
 				<td>Check the box if you want that the plugin try to resize your image to a size accepted by Instagram ( max 1080px ) if your picture is too big.
 			</td>
-
+			</tr>
 			<tr>
 				<td>Remove Exif from picture</td>
 				<td><input type="checkbox" <?php if ($wp2instagram_remove_exif_image == 'Y') {
@@ -570,7 +808,55 @@ if (!class_exists('wp2instagram')) {
             } ?>value="Y" name="wp2instagram_remove_exif_image"></td>
 				<td>Check the box if you want that the plugin remove the Exif from your photo before sending it to Instagram.
 			</td>
-
+			</tr>
+			
+			
+			</table> 
+			<h3>Notifications settings</h3>
+			<hr/>
+			<br/><br/><br/>
+			<table cellpadding="2">
+			
+			
+			
+			
+			<tr>
+				<td>Receive a notification if IG post is good</td>
+				<td><input type="checkbox" <?php if ($wp2instagram_receive_mail_if_ig_post_good == 'Y') {
+                echo 'checked="checked"';
+            } ?>value="Y" name="wp2instagram_receive_mail_if_ig_post_good"></td>
+				<td>Check the box if you want to receive a mail each time a picture is sent to Instagram - Mail will be sent to <b><?php echo $user_email; ?></b>
+			</td>
+			</tr>
+			<tr>
+				<td>Receive a notification if IG post failed</td>
+				<td><input type="checkbox" <?php if ($wp2instagram_receive_mail_if_ig_post_bad == 'Y') {
+                echo 'checked="checked"';
+            } ?>value="Y" name="wp2instagram_receive_mail_if_ig_post_bad"></td>
+				<td>Check the box if you want to receive a mail each time a picture is sent to Instagram and failed to upload - Mail will be sent to <b><?php echo $user_email; ?></b>
+			</td>
+			</tr>
+			<tr>
+				<td>Include additional email address to notification</td>
+				<td><input type="checkbox" <?php if ($wp2instagram_use_additional_email_addresses == 'Y') {
+                echo 'checked="checked"';
+            } ?>value="Y" name="wp2instagram_use_additional_email_addresses"></td>
+				<td>Check this box if you want to add additional email recipients
+			</td>
+			</tr>
+			<tr>
+				<td align="top">Add these email addresses</td>
+				<td align="top"><input type="text" name="wp2instagram_additional_email_addresses" size="90" value="<?php echo $wp2instagram_additional_email_addresses; ?>"></td>
+				<td>Separate your email addresses by a comma - Used only if <i>Include additional email address to notification</i> is checked <br/>
+				</td>
+			</tr>
+			
+			
+			</table> 
+			<h3>Debug settings</h3>
+			<hr/>
+			<br/><br/><br/>
+			<table cellpadding="2">
 			
 			
 			<tr>
@@ -581,8 +867,6 @@ if (!class_exists('wp2instagram')) {
 				<td>Check the box if you want to enable debug mode.
 			</td>
 
-			
-			
 	</tr>
 			</table>
 
@@ -597,69 +881,28 @@ if (!class_exists('wp2instagram')) {
              <a href="http://www.rolandalla.com/contact/"> <img src="https://www.seoclerk.com/files/user/images/hire-me2(5).png" alt="hire me"></a>
             </div>
 
+			<h3 class="ws-table-title">Checking required PHP extensions to be compliant with Instagram-API </h3>
+			<h2><a href="https://github.com/mgp25/Instagram-API/wiki/Dependencies">https://github.com/mgp25/Instagram-API/wiki/Dependencies</a></h2>
+			<br>
+			<div style="font-size:18px; color:#03D">
+			<?php
+				include_once 'required_extensions.php';
+			?>
+			</div>
+
+
             <?php
         }
 
         public function post_published_instagram($ID, $post)
         {
-            $dontautopublish = get_option('wp2instagram_dontautopublish');
-            if ($dontautopublish == false || $dontautopublish == 'null') {
-                $dontautopublish = 'N';
-            } else {
-                $dontautopublish = json_decode($dontautopublish);
-            }
 
-            if (empty($dontautopublish)) {
-                $dontautopublish = 'N';
-            }
-            if ($dontautopublish != 'Y') {
-                $dontautopublish = 'N';
-            }
 
-            $bypass_control = get_option('wp2instagram_bypass_control', '');
-            if ($bypass_control == false || $bypass_control == 'null') {
-                $bypass_control = 'N';
-            } else {
-                $bypass_control = json_decode($bypass_control);
-            }
+			$dontautopublish = self::wp2instagram_get_option('wp2instagram_dontautopublish','N');
+			$bypass_control = self::wp2instagram_get_option('wp2instagram_bypass_control','N');
+			$resize_image = self::wp2instagram_get_option('wp2instagram_resize_image','N');
+			$remove_exif = self::wp2instagram_get_option('wp2instagram_remove_exif_image','N');
 
-            if (empty($bypass_control)) {
-                $bypass_control = 'N';
-            }
-            if ($bypass_control != 'Y') {
-                $bypass_control = 'N';
-            }
-
-            $resize_image = get_option('wp2instagram_resize_image', '');
-            if ($resize_image == false || $resize_image == 'null') {
-                $resize_image = 'N';
-            } else {
-                $resize_image = json_decode($resize_image);
-            }
-
-            if (empty($resize_image)) {
-                $resize_image = 'N';
-            }
-            if ($resize_image != 'Y') {
-                $resize_image = 'N';
-            }
-
-            $resize_image = get_option('wp2instagram_remove_exif_image', '');
-            if ($remove_exif == false || $remove_exif == 'null') {
-                $remove_exif = 'N';
-            } else {
-                $remove_exif = json_decode($remove_exif);
-            }
-
-            if (empty($remove_exif)) {
-                $remove_exif = 'N';
-            }
-            if ($remove_exif != 'Y') {
-                $remove_exif = 'N';
-            }
-			
-			
-			
             $post_this_article_to_instagram = 'N';
             $in_instagram_box = 'N';
 
@@ -690,6 +933,18 @@ if (!class_exists('wp2instagram')) {
                 $username = get_option('wp2instagram_username', '');
                 $password = get_option('wp2instagram_password', '');
 
+				$use_ig_proxy = self::wp2instagram_get_option('wp2instagram_use_proxy','N');
+								
+				//$ig_proxy='https://204.15.243.234:45078';
+
+				$ig_proxy = self::wp2instagram_get_option('wp2instagram_ig_proxy','',false);
+
+				if (empty($ig_proxy)) {
+					$ig_proxy = '';
+				}
+
+
+
                 if ($username == '' || $password == '') {
                     return;
                 } else {
@@ -707,10 +962,10 @@ if (!class_exists('wp2instagram')) {
 
                             list($originalWidth, $originalHeight) = getimagesize($photo);
 
-							
+
 							if ( ( $originalWidth > 0 ) &&  ( $originalHeight > 0 ) ) {
-					
-						
+
+
 								if ($bypass_control == 'N') {
 									if ($originalWidth > 1080) {
 										$instagram_post_upload_status = 'Width too big for Instagram - must be less than 1080px';
@@ -741,14 +996,14 @@ if (!class_exists('wp2instagram')) {
 									}
 								}
 
-								
-								
+
+
 								if ($remove_exif == 'Y')  {
-									
+
 									$ratio = $originalWidth / $originalHeight;
 									$resizeH = $originalHeight;
 									$resizeW = $originalWidth;
-									
+
 									//let's go and resize picture, that will remove the exif
 
 									$origimg = imagecreatefromjpeg($photo);
@@ -766,11 +1021,11 @@ if (!class_exists('wp2instagram')) {
 									$action_delete = true;
 
 									list($originalWidth, $originalHeight) = getimagesize($photo);
-									
+
 								}
-								
-	
-								
+
+
+
 								if ($resize_image == 'Y')  {
 									$ratio = $originalWidth / $originalHeight;
 
@@ -786,8 +1041,8 @@ if (!class_exists('wp2instagram')) {
 
 										$resizeH = 1080;
 										$resizeW = 1080;
-									} else { // picture size is lower than 1080 but bigger than 320 , so we keep the original size 
-									
+									} else { // picture size is lower than 1080 but bigger than 320 , so we keep the original size
+
 										$resizeH = $originalHeight;
 										$resizeW = $originalWidth;
 									}
@@ -853,23 +1108,13 @@ if (!class_exists('wp2instagram')) {
 								}
 
 							}
-							
-							
+
+
+
+
+
                             $debug = false;
-
-                            $debug_mode = get_option('wp2instagram_debug', '');
-                            if ($debug_mode == false || $debug_mode == 'null') {
-                                $debug_mode = 'N';
-                            } else {
-                                $debug_mode = json_decode($debug_mode);
-                            }
-
-                            if (empty($debug_mode)) {
-                                $debug_mode = 'Y';
-                            }
-                            if ($debug_mode != 'Y') {
-                                $debug_mode = 'N';
-                            }
+							$debug_mode = self::wp2instagram_get_option('wp2instagram_debug','Y');
 
                             if ($debug_mode == 'Y') {
                                 $debug = true;
@@ -881,6 +1126,7 @@ if (!class_exists('wp2instagram')) {
 
                             //////////////////////
                             $caption = html_entity_decode($caption, ENT_QUOTES, 'UTF-8');
+							$the_photo_title = $caption;
 
                             //////////////////////
                             // ADD HASHTAGS
@@ -923,6 +1169,7 @@ if (!class_exists('wp2instagram')) {
 
                             //$max_number_of_hashtags=28;
 
+
                             $max_number_of_hashtags = get_option('wp2instagram_max_number_of_hashtags', '');
 
                             if ($max_number_of_hashtags == false || $max_number_of_hashtags == 'null') {
@@ -931,141 +1178,74 @@ if (!class_exists('wp2instagram')) {
                                 $max_number_of_hashtags = json_decode($max_number_of_hashtags);
                             }
 
-                            if (empty($max_number_of_hashtags)) {
+							if (empty($max_number_of_hashtags)) {
                                 $max_number_of_hashtags = 29;
                             }
+
 
                             $additional_tag_list = '';
                             $bad_char = [' '];
 
-                            $sanitize_tags_of_post = get_option('wp2instagram_sanitize', '');
-                            if ($sanitize_tags_of_post == false || $sanitize_tags_of_post == 'null') {
-                                $sanitize_tags_of_post = 'N';
+
+							$use_of_excerpt = self::wp2instagram_get_option('wp2instagram_use_of_excerpt','N');
+
+
+							 //$max_number_of_words_in_excerpt
+
+
+                            $max_number_of_words_in_excerpt = get_option('wp2instagram_max_number_of_words_in_excerpt', '');
+
+                            if ($max_number_of_words_in_excerpt == false || $max_number_of_words_in_excerpt == 'null') {
+                                $max_number_of_words_in_excerpt = '';
                             } else {
-                                $sanitize_tags_of_post = json_decode($sanitize_tags_of_post);
+                                $max_number_of_words_in_excerpt = json_decode($max_number_of_words_in_excerpt);
                             }
 
-                            if (empty($sanitize_tags_of_post)) {
-                                $sanitize_tags_of_post = 'N';
-                            }
-                            if ($sanitize_tags_of_post != 'Y') {
-                                $sanitize_tags_of_post = 'N';
+							if (empty($max_number_of_words_in_excerpt)) {
+                                $max_number_of_words_in_excerpt = 0;
                             }
 
-                            $replace_accents_in_tags_of_post = get_option('wp2instagram_replace_accents', '');
-                            if ($replace_accents_in_tags_of_post == false || $replace_accents_in_tags_of_post == 'null') {
-                                $replace_accents_in_tags_of_post = 'Y';
-                            } else {
-                                $replace_accents_in_tags_of_post = json_decode($replace_accents_in_tags_of_post);
-                            }
 
-                            if (empty($replace_accents_in_tags_of_post)) {
-                                $replace_accents_in_tags_of_post = 'Y';
-                            }
-                            if ($replace_accents_in_tags_of_post != 'Y') {
-                                $replace_accents_in_tags_of_post = 'N';
-                            }
 
-							
-							$use_title_words_of_post = get_option('wp2instagram_use_title_words_of_post', '');
-                            if ($use_title_words_of_post == false || $use_title_words_of_post == 'null') {
-                                $use_title_words_of_post = 'Y';
-                            } else {
-                                $use_title_words_of_post = json_decode($use_title_words_of_post);
-                            }
 
-                            if (empty($use_title_words_of_post)) {
-                                $use_title_words_of_post = 'Y';
-                            }
-                            if ($use_title_words_of_post != 'Y') {
-                                $use_title_words_of_post = 'N';
-                            }
-							
-							
-							
-                            $use_tags_of_post = get_option('wp2instagram_use_tags_of_post', '');
-                            if ($use_tags_of_post == false || $use_tags_of_post == 'null') {
-                                $use_tags_of_post = 'Y';
-                            } else {
-                                $use_tags_of_post = json_decode($use_tags_of_post);
-                            }
+							$sanitize_tags_of_post = self::wp2instagram_get_option('wp2instagram_sanitize','N');
+							$replace_accents_in_tags_of_post = self::wp2instagram_get_option('wp2instagram_replace_accents','Y');
+							$use_title_words_of_post = self::wp2instagram_get_option('wp2instagram_use_title_words_of_post','N');
+							$use_tags_of_post = self::wp2instagram_get_option('wp2instagram_use_tags_of_post','Y');
+							$use_categories_of_post = self::wp2instagram_get_option('wp2instagram_use_categories_of_post','N');
+							$use_author_of_post = self::wp2instagram_get_option('wp2instagram_author','Y');
+							$receive_mail_if_ig_post_good = self::wp2instagram_get_option('wp2instagram_receive_mail_if_ig_post_bad','N');
+							$receive_mail_if_ig_post_bad = self::wp2instagram_get_option('wp2instagram_receive_mail_if_ig_post_bad','N');
+							$attach_post_link_to_caption = self::wp2instagram_get_option('wp2instagram_attach_post_link_to_caption','N');
+							$use_additional_email_addresses = self::wp2instagram_get_option('wp2instagram_use_additional_email_addresses','N');
 
-                            if (empty($use_tags_of_post)) {
-                                $use_tags_of_post = 'Y';
-                            }
-                            if ($use_tags_of_post != 'Y') {
-                                $use_tags_of_post = 'N';
-                            }
 
-                            $use_categories_of_post = get_option('wp2instagram_use_categories_of_post', '');
-                            if ($use_categories_of_post == false || $use_categories_of_post == 'null') {
-                                $use_categories_of_post = 'Y';
-                            } else {
-                                $use_categories_of_post = json_decode($use_categories_of_post);
-                            }
+							// Get extra email addresses
 
-                            if (empty($use_categories_of_post)) {
-                                $use_categories_of_post = 'Y';
-                            }
-                            if ($use_categories_of_post != 'Y') {
-                                $use_categories_of_post = 'N';
-                            }
+							$additional_email_addresses = self::wp2instagram_get_option('wp2instagram_additional_email_addresses','',false);
 
-                            $use_author_of_post = get_option('wp2instagram_author', '');
-                            if ($use_author_of_post == false || $use_author_of_post == 'null') {
-                                $use_author_of_post = 'Y';
-                            } else {
-                                $use_author_of_post = json_decode($use_author_of_post);
-                            }
-
-                            if (empty($use_author_of_post)) {
-                                $use_author_of_post = 'Y';
-                            }
-                            if ($use_author_of_post != 'Y') {
-                                $use_author_of_post = 'N';
-                            }
+							if ($use_additional_email_addresses == 'N') {
+								$additional_email_addresses = '';
+							}
 
                             // Get Author's Caption
-
-                            $author_caption = get_option('wp2instagram_author_caption', '');
-                            if ($author_caption == false || $author_caption == 'null') {
-                                $author_caption = '';
-                            } else {
-                                $author_caption = json_decode($author_caption);
-                            }
+							$author_caption = self::wp2instagram_get_option('wp2instagram_author_caption','',false);
 
                             // Get header & footer
-
-                            $header_caption = get_option('wp2instagram_header_caption', '');
-                            if ($header_caption == false || $header_caption == 'null') {
-                                $header_caption = '';
-                            } else {
-                                $header_caption = json_decode($header_caption);
-                            }
+							$header_caption = self::wp2instagram_get_option('wp2instagram_header_caption','',false);
 
                             if (empty($header_caption)) {
                                 $header_caption = '';
                             }
 
-                            $footer_caption = get_option('wp2instagram_footer_caption', '');
-                            if ($footer_caption == false || $footer_caption == 'null') {
-                                $footer_caption = '';
-                            } else {
-                                $footer_caption = json_decode($footer_caption);
-                            }
+							$footer_caption = self::wp2instagram_get_option('wp2instagram_footer_caption','',false);
 
                             if (empty($footer_caption)) {
                                 $footer_caption = '';
                             }
 
                             // First process additional tags
-
-                            $additional_hashtags = get_option('wp2instagram_additional_hashtags', '');
-                            if ($additional_hashtags == false || $additional_hashtags == 'null') {
-                                $additional_hashtags = '';
-                            } else {
-                                $additional_hashtags = json_decode($additional_hashtags);
-                            }
+							$additional_hashtags = self::wp2instagram_get_option('wp2instagram_additional_hashtags','',false);
 
                             if (empty($additional_hashtags)) {
                                 $additional_hashtags_list = [''];
@@ -1088,18 +1268,18 @@ if (!class_exists('wp2instagram')) {
                                     $number_of_hashtags++;
                                 }
                             }
-							
-							
+
+
 							// Now process tags associated to post title
-							
+
 							if ($use_title_words_of_post == 'Y') {
-							
+
 								if (empty($caption)) {
 									$title_words_hashtags_list = [''];
 								} else {
 									$title_words_hashtags_list = explode(' ', $caption);
 								}
-							
+
 								foreach ($title_words_hashtags_list as $tag) {
 									$instagram_tag = str_replace($bad_char, '', $tag);
 
@@ -1115,9 +1295,9 @@ if (!class_exists('wp2instagram')) {
 										$number_of_hashtags++;
 									}
 								}
-							
+
 							}
-							
+
 
                             // Now process tags associated to post
 
@@ -1179,7 +1359,9 @@ if (!class_exists('wp2instagram')) {
                                 }
                                 if (strlen($display_name) > 0) {
                                     $caption .= $display_name;
-                                }
+                                } else {
+									$caption .= 'Unknown author';
+								}
                             }
 
                             if (strlen($header_caption) > 0) {
@@ -1190,9 +1372,32 @@ if (!class_exists('wp2instagram')) {
                                 $caption .= ' - '.strtolower($tag_list);
                             }
 
+
+
+
+							if ( $use_of_excerpt == 'Y' ) {
+
+								$post_excerpt = wp_trim_words( get_post_field( 'post_content', $ID ), $max_number_of_words_in_excerpt) ;
+
+								if (strlen($post_excerpt) > 0) {
+									$caption .= ' - '.$post_excerpt;
+								}
+                            }
+
+
+
                             if (strlen($footer_caption) > 0) {
                                 $caption .= ' - '.$footer_caption;
                             }
+
+							$post_link = get_permalink( $ID );
+
+							if ( $attach_post_link_to_caption == 'Y' ) {
+								if (strlen($post_link) > 0) {
+									$caption .= ' - '.$post_link;
+								}
+                            }
+
 
                             //////////////////////
                             $caption = html_entity_decode($caption, ENT_QUOTES, 'UTF-8');
@@ -1200,55 +1405,131 @@ if (!class_exists('wp2instagram')) {
                             $wp2IGFullPath = null;
 
                             try {
-                                $i = new \InstagramAPI\Instagram($username, $password, $debug, $wp2IGFullPath);
+								\InstagramAPI\Instagram::$allowDangerousWebUsageAtMyOwnRisk = true;
+								$i = new \InstagramAPI\Instagram(false, true);
+								if ( $use_ig_proxy == 'Y' ) { $i->setProxy($ig_proxy); }
+								$i->login($username, $password);
                             } catch (\Exception $e) {
                                 $error_message = $e->getMessage();
 
                                 if ($error_message == 'login_required') {
                                     try {
                                         $loging_force = true;
+										if ( $use_ig_proxy == 'Y' ) { $i->setProxy($ig_proxy); }
                                         $i->login($loging_force);
                                     } catch (\Exception $e2) {
                                         $instagram_post_upload_status = 'Something went wrong while logging to instagram: '.$e2->getMessage();
                                         update_post_meta($ID, 'instagram_post_upload_status', json_encode($instagram_post_upload_status));
+
+
+										if ( $receive_mail_if_ig_post_bad == 'Y' ) {
+
+											$email_subject = "Auto Post To Instagram Failed Notification - your photo «".$the_photo_title."» was not uploaded to Instagram";
+
+											$email_msg = '<p>Dear user</p>';
+											$email_msg.= '<p>Your post ID '. $ID .' / «'.$the_photo_title.'» was not posted on Instagram due to the following reason - see below</p></br>';
+											$email_msg.= '</br>';
+											$email_msg.= '<p>'.$instagram_post_upload_status.'</p>';
+
+											$this->wp2instagram_send_email($email_subject,$email_msg,$additional_email_addresses);
+
+										}
+
                                         echo $instagram_post_upload_status."\n";
                                         exit(0);
                                     }
                                 } else {
                                     $instagram_post_upload_status = 'Something went wrong while connecting to instagram: '.$e->getMessage();
                                     update_post_meta($ID, 'instagram_post_upload_status', json_encode($instagram_post_upload_status));
+
+									if ( $receive_mail_if_ig_post_bad == 'Y' ) {
+
+										$email_subject = "Auto Post To Instagram Failed Notification - your photo «".$the_photo_title."» was not uploaded to Instagram";
+
+										$email_msg = '<p>Dear user</p>';
+										$email_msg.= '<p>Your post ID '. $ID .' / «'.$the_photo_title.'» was not posted on Instagram due to the following reason - see below</p></br>';
+										$email_msg.= '</br>';
+										$email_msg.= '<p>'.$instagram_post_upload_status.'</p>';
+
+										$this->wp2instagram_send_email($email_subject,$email_msg,$additional_email_addresses);
+									}
+
+
                                     echo $instagram_post_upload_status."\n";
                                     exit(0);
                                 }
                             }
 
-                            try {
-                                $i->setUser($username, $password);
-                            } catch (\Exception $e) {
-                                $instagram_post_upload_status = 'Something went wrong while setting user to instagram: '.$e->getMessage();
-                                update_post_meta($ID, 'instagram_post_upload_status', json_encode($instagram_post_upload_status));
-                                echo $instagram_post_upload_status."\n";
+							// Retreive User Info
+
+							try {
+								$insta_user_details = $i->people->getInfoByName($username);
+							} catch (\Exception $e) {
+                                $instagram_post_userdetails_status = 'Something went wrong while getting user details from instagram: '.$e->getMessage();
+                                update_post_meta($ID, 'instagram_post_userdetails_status', json_encode($instagram_post_userdetails_status));
+                                echo $instagram_post_userdetails_status."\n";
                                 exit(0);
                             }
 
+							$insta_user_details = json_decode($insta_user_details);
+							$insta_userid = $insta_user_details->user->pk;
+							$insta_fullname_status = $insta_user_details->user->full_name;
+
+							update_post_meta($ID, 'instagram_fullname_status', json_encode($insta_fullname_status));
+
                             try {
-                                $insta_info = $i->uploadPhoto($photo, $caption);
+
+								$IGphoto = new \InstagramAPI\Media\Photo\InstagramPhoto($photo);
+								$insta_info = $i->timeline->uploadPhoto($IGphoto->getFile(),  ['caption' => $caption]);
+
                             } catch (\Exception $e) {
                                 $error_message = $e->getMessage();
 
                                 if ($error_message == 'login_required') {
                                     try {
-                                        $i->login();
+                                        $loging_force = true;
+										if ( $use_ig_proxy == 'Y' ) { $i->setProxy($ig_proxy); }
+                                        $i->login($loging_force);
                                     } catch (\Exception $e2) {
                                         $instagram_post_upload_status = 'Something went wrong while logging to instagram: '.$e2->getMessage();
                                         update_post_meta($ID, 'instagram_post_upload_status', json_encode($instagram_post_upload_status));
-                                        echo $instagram_post_upload_status."\n";
+
+
+										if ( $receive_mail_if_ig_post_bad == 'Y' ) {
+
+											$email_subject = "Auto Post To Instagram Failed Notification - your photo «".$the_photo_title."» was not uploaded to Instagram";
+
+											$email_msg = '<p>Dear user</p>';
+											$email_msg.= '<p>Your post ID '. $ID .' / «'.$the_photo_title.'» was not posted on Instagram due to the following reason - see below</p></br>';
+											$email_msg.= '</br>';
+											$email_msg.= '<p>'.$instagram_post_upload_status.'</p>';
+
+											$this->wp2instagram_send_email($email_subject,$email_msg,$additional_email_addresses);
+
+										}
+
+										echo $instagram_post_upload_status."\n";
                                         exit(0);
                                     }
                                 } else {
                                     $instagram_post_upload_status = 'Something went wrong while uploading your photo: '.$e->getMessage();
                                     update_post_meta($ID, 'instagram_post_upload_status', json_encode($instagram_post_upload_status));
-                                    echo $instagram_post_upload_status."\n";
+
+
+									if ( $receive_mail_if_ig_post_bad == 'Y' ) {
+
+											$email_subject = "Auto Post To Instagram Failed Notification - your photo «".$the_photo_title."» was not uploaded to Instagram";
+
+											$email_msg = '<p>Dear user</p>';
+											$email_msg.= '<p>Your post ID '. $ID .' / «'.$the_photo_title.'» was not posted on Instagram due to the following reason - see below</p></br>';
+											$email_msg.= '</br>';
+											$email_msg.= '<p>'.$instagram_post_upload_status.'</p>';
+
+											$this->wp2instagram_send_email($email_subject,$email_msg,$additional_email_addresses);
+
+										}
+
+									echo $instagram_post_upload_status."\n";
 									exit(0);
                                 }
                             }
@@ -1259,18 +1540,62 @@ if (!class_exists('wp2instagram')) {
 
                             update_post_meta($ID, 'instagram_response_status', $insta_info);
 
-                            if ($insta_info->getMediaId() == '') {
+
+
+							if (strpos($insta_info, 'cdninstagram') == false) {
                                 $instagram_post_upload_status = 'Not accepted by Instagram';
                                 update_post_meta($ID, 'instagram_post_upload_status', json_encode($instagram_post_upload_status));
+
+
+								if ( $receive_mail_if_ig_post_bad == 'Y' ) {
+
+									$email_subject = "Auto Post To Instagram Failed Notification - your photo «".$the_photo_title."» was not accepted by Instagram";
+
+									$email_msg = '<p>Dear user</p>';
+									$email_msg.= '<p>Your post ID '. $ID .' / «'.$the_photo_title.'» was not posted on Instagram due to following reason - see below</p></br>';
+									$email_msg.= '</br>';
+									$email_msg.= '<p>'.$insta_info.'</p>';
+
+									$this->wp2instagram_send_email($email_subject,$email_msg,$additional_email_addresses);
+
+								}
+
                             } else {
                                 update_post_meta($ID, 'firstpublish', true);
 
                                 $instagram_post_upload_status = 'Uploaded to Instagram';
                                 update_post_meta($ID, 'instagram_post_upload_status', json_encode($instagram_post_upload_status));
+
+								// Now retrieve Instagram link, it is the last one that we sent in our Instagram User feed
+
+								$userId = $i->people->getUserIdForName($username);
+								$maxId = null;
+								$response = $i->timeline->getUserFeed($userId, $maxId);
+								$IgItemList = $response->getItems();
+								$InstaCode = $IgItemList[0]->getCode();
+								$InstaLink = 'https://instagram.com/p/'.$InstaCode;
+
+								update_post_meta($ID, 'instagram_post_link', json_encode($InstaLink));
+
+								if ( $receive_mail_if_ig_post_good == 'Y' ) {
+
+									$email_subject = "Auto Post To Instagram Notification - your photo «".$the_photo_title."» was successfully sent to Instagram";
+
+									$email_msg = '<p>Dear user</p>';
+									$email_msg.= '<p>Your post ID '. $ID .' / «'.$the_photo_title.'» - ('.$post_link.') was successfully posted on Instagram - ('.$InstaLink.') - result below</p></br>';
+									$email_msg.= '</br>';
+									$email_msg.= '<p>'.$insta_info.'</p>';
+
+
+									$this->wp2instagram_send_email($email_subject,$email_msg,$additional_email_addresses);
+
+								}
                             }
 
                             $instagram_post_date = date('Y-m-d H:i:s', time());
                             update_post_meta($ID, 'instagram_post_date', $instagram_post_date);
+
+
                         }
                     } else {
                         return;
