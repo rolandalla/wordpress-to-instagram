@@ -1,6 +1,5 @@
 === Auto-Post For Instagram ===
 Contributors: rolandalla91, dufour_l
-Donate link: https://www.paypal.me/ROLANDALLA/
 Tags: autopost, wordpress, instagram
 Requires at least: 3.5
 Tested up to: 5.2.2
