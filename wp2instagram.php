@@ -1,10 +1,10 @@
 <?php
 /*
-Plugin Name: Auto-Post for Instagram
+Plugin Name: Auto Post WP to Photo Social Network
 Plugin URI: https://wordpress.org/plugins/auto-post-to-instagram/
 Description: Plugin for automatic posting Wordpress images 
 Author: Roland & Informatica Duran
-Version: 1.5.3
+Version: 1.5.5
 Author URI: https://wordpress.org/plugins/auto-post-to-instagram/
 */
 

@@ -1,4 +1,4 @@
-=== Auto-Post For Instagram ===
+=== Auto Post WP to Photo Social Network===
 Contributors: rolandalla91, dufour_l
 Donate link: https://www.paypal.me/ROLANDALLA/
 Tags: autopost, wordpress, instagram
